@@ -3,8 +3,36 @@
             [fhir-schemas.util :refer [error-data]])
   (:import [java.net URI]))
 
+(defn not-blank-str?
+  "Returns true if `s` is a non-blank string, else false"
+  [s]
+  (and (string? s)
+       (not (str/blank? s))))
 
-(defn valid-uri?
+(defn int32?
+  "Returns true if `n` is a 32 bits integer"
+  [n]
+  (and (integer? n)
+       (<= -2147483648 n 2147483647)))
+
+(defn uint32?
+  "Returns true if `n` is a unsigned 32 bits integer"
+  [n]
+  (and (int32? n)
+       (nat-int? n)))
+
+(defn pos-int32?
+  "Returns true if `n` is a positive 32 bits integer" 
+  [n]
+  (and (int32? n)
+       (pos-int? n)))
+
+(defn fhir-sized-str?
+  "Returns true if `s` is under FHIR string limit, else false"
+  [s]
+  (<= (count s) 1048576))
+
+(defn fhir-uri?
   "Returns true if uri is a valid RFC 3986 URI, else false"
   [^String uri]
   (try
@@ -13,18 +41,60 @@
     (catch Exception _
       false)))
 
+(defn fhir-url?
+  "Returns true if url is a valid RFC 1738 URL, else false"
+  [^String url]
+  (try
+    (.toURL (URI. url))
+    true
+    (catch Exception _
+      false)))
+
+(defn fhir-canonical?
+  "Returns true if `canonical` is a valid FHIR Canonical URL, else false"
+  [^String canonical]
+  (let [parts (str/split canonical #"\|")]
+    (if (< 2 (count parts))
+      false
+      (let [base-uri (first parts)]
+        (if (str/starts-with? base-uri "#")
+          true
+          (try (.isAbsolute (URI. base-uri))
+               (catch Exception _ false)))))))
+
 (def registry
-  "Primitive FHIR Types map"
-  {;; string family
+  "A map containing the definitions for FHIR primitive types. 
+    Each entry specifies the kind of type (base or derived), its parent, 
+    and a sequence of validation steps.
+    Example:
+   
+      {:fhir/url 
+       {:kind ::derived
+        :based-on :fhir/uri
+        :validation [{:type :fn 
+                      :value fhir-url? 
+                      :issue (error-data \"error\" \"invalid\" \"...\")}]
+        :description \"A Uniform Resource Locator\"}}"
+  {;; String family
    :fhir/string {:kind ::base
-                 :validation [{:type :fn :value string? :issue (error-data "error" "structure" "The value must be a string")}
-                              {:type :fn :value (complement str/blank?) :issue (error-data "error" "value" "The string is blank")}
-                              {:type :fn :value #(<= (count %) 1048576) :issue (error-data "error" "too-long" "The value length is over than 1048576 characters")}]
+                 :validation [{:type :fn 
+                               :value string? 
+                               :issue (error-data "error" "structure" "The value must be a string")}
+                              
+                              {:type :fn 
+                               :value not-blank-str? 
+                               :issue (error-data "error" "value" "The string is blank")}
+                              
+                              {:type :fn 
+                               :value fhir-sized-str? 
+                               :issue (error-data "error" "too-long" "The value length is over than 1048576 characters")}]
                  :description "A sequence of Unicode characters"}
 
    :fhir/code {:kind ::derived
                :based-on :fhir/string
-               :validation [{:type :pattern :value #"[^\s]+( [^\s]+)*" :issue (error-data "error" "invalid" "The code format is invalid (no leading/trailing or double spaces allowed)")}]
+               :validation [{:type :pattern 
+                             :value #"[^\s]+( [^\s]+)*" 
+                             :issue (error-data "error" "invalid" "The code format is invalid (no leading/trailing or double spaces allowed)")}]
                :description "A string taken from a set of controlled strings defined elsewhere"}
 
    :fhir/markdown {:kind ::derived
@@ -33,29 +103,84 @@
 
    :fhir/id {:kind ::derived
              :based-on :fhir/string
-             :validation [{:type :pattern :value #"[A-Za-z0-9\-\.]{1,64}" :issue (error-data "error" "invalid" "The id does not match the required format (letters, numbers, dots, dashes, max 64 chars)")}]
+             :validation [{:type :pattern 
+                           :value #"[A-Za-z0-9\-\.]{1,64}" 
+                           :issue (error-data "error" "invalid" "The id does not match the required format (letters, numbers, dots, dashes, max 64 chars)")}]
              :description "Any combination of upper- or lower-case ASCII letters ('A'..'Z', and 'a'..'z', numerals ('0'..'9'), '-' and '.', with a length limit of 64 characters."}
 
-   ;; integer family
+   ;; Integer family
    :fhir/integer {:kind ::base
-                  :validation [{:type :fn :value integer? :issue (error-data "error" "structure" "The value must be an integer")}
-                               {:type :fn :value #(<= -2147483648 % 2147483647) :issue (error-data "error" "value" "The value is outside the 32-bit signed integer range")}]
+                  :validation [{:type :fn 
+                                :value integer? 
+                                :issue (error-data "error" "structure" "The value must be an integer")}
+                               
+                               {:type :fn 
+                                :value int32? 
+                                :issue (error-data "error" "value" "The value is outside the 32-bit signed integer range")}]
                   :description "A signed integer in the range −2,147,483,648..2,147,483,647"}
 
    :fhir/unsigned-int {:kind ::derived
                        :based-on :fhir/integer
-                       :validation [{:type :fn :value #(<= 0 %) :issue (error-data "error" "value" "The integer must be greater or equal to zero")}]
+                       :validation [{:type :fn 
+                                     :value uint32? 
+                                     :issue (error-data "error" "value" "The integer must be greater or equal to zero")}]
                        :description "Any non-negative integer in the range 0..2,147,483,647"}
 
    :fhir/positive-int {:kind ::derived
                        :based-on :fhir/integer
-                       :validation [{:type :fn :value pos? :issue (error-data "error" "value" "The integer must be a positive value (greater than zero)")}]
+                       :validation [{:type :fn 
+                                     :value pos-int32? 
+                                     :issue (error-data "error" "value" "The integer must be a positive value (greater than zero)")}]
                        :description "Any positive integer in the range 1..2,147,483,647"}
 
-   ;; 
+   ;; URI family
    :fhir/uri {:kind ::base
-              :validation [{:type :fn :value string? :issue (error-data "error" "structure" "The URI must be a string")}
-                           {:type :fn :value (complement str/blank?) :issue (error-data "error" "value" "The URI cannot be empty or consist only of whitespace")}
-                           {:type :fn :value valid-uri? :issue (error-data "error" "invalid" "The value is not a valid RFC 3986 URI")}]
-              :description "A Uniform Resource Identifier Reference"}})
+              :validation [{:type :fn 
+                            :value string? 
+                            :issue (error-data "error" "structure" "The URI must be a string")}
+                           
+                           {:type :fn 
+                            :value not-blank-str? 
+                            :issue (error-data "error" "value" "The URI cannot be empty or consist only of whitespace")}
+                           
+                           {:type :fn 
+                            :value fhir-uri? 
+                            :issue (error-data "error" "invalid" "The value is not a valid RFC 3986 URI")}]
+              :description "A Uniform Resource Identifier Reference"}
 
+   :fhir/url {:kind ::derived
+              :based-on :fhir/uri
+              :validation [{:type :fn 
+                            :value fhir-url? 
+                            :issue (error-data "error" "invalid" "The value is not a valid RFC 1738 URL")}]
+              :description "A Uniform Resource Locator"}
+
+   :fhir/canonical {:kind ::derived
+                    :based-on :fhir/uri
+                    :exclude [fhir-uri?]
+                    :validation [{:type :fn 
+                                  :value fhir-canonical? 
+                                  :issue (error-data "error" "invalid" "The value is not a valid canonical URI (must be absolute or a fragment, allowing a single '|' for versioning)")}]
+                    :description "A URI that refers to a resource by its canonical URL"}
+
+   :fhir/uuid {:kind ::derived
+               :based-on :fhir/uri
+               :validation [{:type :pattern 
+                             :value #"urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+                             :issue (error-data "error" "invalid" "The value is not a valid UUID URN (must have the prefix 'urn:uuid:' followed by lowercase hexadecimal characters)")}]
+               :description "A UUID represented as a URI; e.g., urn:uuid:c757873d-ec9a-4326-a141-556f43239520"}
+
+   :fhir/oid {:kind ::derived
+              :based-on :fhir/uri
+              :validation [{:type :pattern
+                            :value #"urn:oid:[0-2](\.(0|[1-9][0-9]*))+"
+                            :issue (error-data "error" "invalid" "The value is not a valid OID URN (must have the prefix 'urn:oid:' followed by dot-separated numbers)")}]}
+   
+   ;; TODO: add other primitives
+   })
+
+(comment
+    ;; For cases like 'canonical', where a child type violates a parent constraint,
+    ;; we can bypass that constraint by adding it to the :exclude vector.
+    ;; Supports either named functions or regular expressions. 
+  :.)
