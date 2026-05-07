@@ -20,7 +20,7 @@ jobs:
             - name: Install Clojure
               uses: DeLaGuardo/setup-clojure@12.5
               with:
-                cli: 1.12.5-alpha1  
+                cli: latest  
             
             - name: Cache Deps
               uses: actions/cache@v4
