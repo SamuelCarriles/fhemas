@@ -34,4 +34,4 @@ jobs:
                     ${{ runner.os }}-deps-
                     
             - name: Run tests
-              run: clj -M:test
+              run: clojure -M:test
