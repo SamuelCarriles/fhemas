@@ -1,41 +1,42 @@
 (ns fhir-schemas.type.primitive
   (:require [clojure.string :as str]
             [fhir-schemas.util :refer [error-data]])
-  (:import [java.net URI]))
+  (:import [java.net URI]
+           [java.util Base64]))
 
 (defn not-blank-str?
   "Returns true if `s` is a non-blank string, else false"
-  [s]
+  [^String s]
   (and (string? s)
        (not (str/blank? s))))
 
 (defn int32?
   "Returns true if `n` is a 32 bits integer"
-  [n]
+  [^Integer n]
   (and (integer? n)
        (<= Integer/MIN_VALUE n Integer/MAX_VALUE)))
 
 (defn int64?
   "Returns true if `n` is a 64 bits integer"
-  [n]
+  [^Long n]
   (and (integer? n)
        (<= Long/MIN_VALUE n Long/MAX_VALUE)))
 
 (defn uint32?
   "Returns true if `n` is a unsigned 32 bits integer"
-  [n]
+  [^Integer n]
   (and (int32? n)
        (nat-int? n)))
 
 (defn pos-int32?
   "Returns true if `n` is a positive 32 bits integer"
-  [n]
+  [^Integer n]
   (and (int32? n)
        (pos-int? n)))
 
 (defn fhir-sized-str?
   "Returns true if `s` is under FHIR string limit, else false"
-  [s]
+  [^String s]
   (and (string? s)
        (<= (count s) 1048576)))
 
@@ -68,6 +69,15 @@
           true
           (try (.isAbsolute (URI. base-uri))
                (catch Exception _ false)))))))
+
+(defn fhir-base64?
+  "Returns true if `s` is a base64 encoded string"
+  [^String s]
+  (try
+    (.decode (Base64/getMimeDecoder) s)
+    true
+    (catch Exception _
+      false)))
 
 (def registry
   "A map containing the definitions for FHIR primitive types. 
@@ -192,15 +202,28 @@
                             :value #"urn:oid:[0-2](\.(0|[1-9][0-9]*))+"
                             :issue (error-data "error" "invalid" "The value is not a valid OID URN (must have the prefix 'urn:oid:' followed by dot-separated numbers)")}]}
 
-   ;; Others
+   ;;
    :fhir/boolean {:kind ::base
                   :validation [{:type :fn
                                 :value boolean?
                                 :issue (error-data "error" "structure" "The value must be a boolean")}]
                   :description "'true' or 'false'"}
    
-  
-   ;; TODO: add :fhir/base64-binary
+  ;; base64Binary 
+  :fhir/base64 {:kind ::base
+                 :validation [{:type :fn
+                               :value string?
+                               :issue (error-data "error" "structure" "The value must be a string")}
+                              
+                              {:type :fn
+                               :value not-blank-str?
+                               :issue (error-data "error" "value" "The base64 content cannot be empty")}
+
+                              {:type :fn
+                               :value fhir-base64?
+                               :issue (error-data "error" "invalid" "The value is not valid Base64 encoded data (RFC 4648)")}]
+                 :description "A stream of bytes, base64 encoded (RFC 4648)"}
+
    ;; TODO: add :fhir/date-time
    ;; TODO: add :fhir/date
    ;; TODO: add :fhir/time
