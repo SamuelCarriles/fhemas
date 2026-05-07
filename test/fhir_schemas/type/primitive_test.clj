@@ -92,6 +92,27 @@
       "1"
       nil)))
 
+(deftest int64?-test
+  (testing "Returns true for 64 bits integers"
+    (are [v] (tp/int64? v)
+        -1
+        0
+        1
+        Long/MIN_VALUE
+        Long/MAX_VALUE))
+  
+  (testing "Returns false for out-of-range values"
+    (are [v] (false? (tp/int64? v))
+      -9223372036854775809N
+      9223372036854775808N))
+  
+  (testing "Returns false for non-integer values"
+    (are [v] (false? (tp/int64? v))
+      "foo"
+      :keyword
+      {}
+      [])))
+
 (deftest fhir-sized-str-test
   (testing "Returns true for strings within the 1 MB limit"
     (are [v] (tp/fhir-sized-str? v)
@@ -178,3 +199,4 @@
     (are [v] (false? (tp/fhir-canonical? v))
       "not a valid uri"
       "")))
+
