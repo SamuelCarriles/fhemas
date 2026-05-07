@@ -31,13 +31,13 @@
       -1
       0
       1
-      -2147483648
-      2147483647))
+      Integer/MIN_VALUE
+      Integer/MAX_VALUE))
 
   (testing "Returns false for out-of-range integers"
     (are [v] (false? (tp/int32? v))
-      -2147483649
-      2147483648))
+      (dec Integer/MIN_VALUE)
+      (inc Integer/MAX_VALUE)))
 
   (testing "Returns false for non-integer values"
     (are [v] (false? (tp/int32? v))
@@ -53,15 +53,15 @@
     (are [v] (tp/uint32? v)
       0
       1
-      2147483647))
+      Integer/MAX_VALUE))
 
-  (testing "Returns false for negative  32 bits integers"
+  (testing "Returns false for negative 32 bits integers"
     (are [v] (false? (tp/uint32? v))
       -1
-      -2147483648))
+      Integer/MIN_VALUE))
 
-  (testing "Returns false for out-of-range values")
-  (is (false? (tp/uint32? 2147483648)))
+  (testing "Returns false for out-of-range values"
+    (is (false? (tp/uint32? (inc Integer/MAX_VALUE))))) 
 
   (testing "Returns false for non-integer values"
     (are [v] (false? (tp/uint32? v))
@@ -73,7 +73,7 @@
   (testing "Returns true for 32 bits positive integers"
     (are [v] (tp/pos-int32? v)
       1
-      2147483647))
+      Integer/MAX_VALUE))
 
   (testing "Returns false for zero"
     (is (false? (tp/pos-int32? 0))))
@@ -81,10 +81,10 @@
   (testing "Returns false for negative 32 bits integers"
     (are [v] (false? (tp/pos-int32? v))
       -1
-      -2147483648))
+      Integer/MIN_VALUE))
 
   (testing "Returns false for out-of-range values"
-    (is (false? (tp/pos-int32? 2147483648))))
+    (is (false? (tp/pos-int32? (inc Integer/MAX_VALUE)))))
 
   (testing "Returns false for non-integer values"
     (are [v] (false? (tp/pos-int32? v))
