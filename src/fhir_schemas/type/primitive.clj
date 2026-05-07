@@ -30,7 +30,8 @@
 (defn fhir-sized-str?
   "Returns true if `s` is under FHIR string limit, else false"
   [s]
-  (<= (count s) 1048576))
+  (and (string? s)
+       (<= (count s) 1048576)))
 
 (defn fhir-uri?
   "Returns true if uri is a valid RFC 3986 URI, else false"
