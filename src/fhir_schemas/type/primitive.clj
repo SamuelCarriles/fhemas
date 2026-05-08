@@ -2,7 +2,8 @@
   (:require [clojure.string :as str]
             [fhir-schemas.util :refer [error-data]])
   (:import [java.net URI]
-           [java.util Base64]))
+           [java.util Base64]
+           [java.time Year YearMonth LocalDate OffsetDateTime]))
 
 (defn not-blank-str?
   "Returns true if `s` is a non-blank string, else false"
@@ -79,6 +80,38 @@
     (catch Exception _
       false)))
 
+(defn fhir-date?
+  "Returns true if `s` is a real/existing FHIR date"
+  [^String s]
+  (and (string? s)
+       (try
+         (case (count s)
+           4 (do (Year/parse s) true)
+           7 (do (YearMonth/parse s) true)
+           10 (do (LocalDate/parse s) true)
+           false)
+         (catch Exception _
+           false))))
+
+(defn fhir-instant?
+  "Returns true if `s` is a valid FHIR instant (full date + time + timezone)"
+  [^String s]
+  (and (string? s)
+       (try
+         (OffsetDateTime/parse s)
+         true
+         (catch Exception _
+           false))))
+
+(defn fhir-date-time?
+  "Returns true if `s` is a real/existing FHIR dateTime"
+  [^String s]
+  (and (string? s)
+       (let [[date time] (str/split s #"T" 2)]
+         (if time
+           (fhir-instant? s)
+           (fhir-date? date)))))
+
 (def registry
   "A map containing the definitions for FHIR primitive types. 
     Each entry specifies the kind of type (base or derived), its parent, 
@@ -151,7 +184,7 @@
                        :description "Any positive integer in the range 1..2,147,483,647"}
 
    :fhir/integer64 {:kind ::base
-                    :validation [{:type :fn 
+                    :validation [{:type :fn
                                   :value integer?
                                   :issue (error-data "error" "structure" "The value must be a 64 bits integer")}
                                  {:type :fn
@@ -202,19 +235,18 @@
                             :value #"urn:oid:[0-2](\.(0|[1-9][0-9]*))+"
                             :issue (error-data "error" "invalid" "The value is not a valid OID URN (must have the prefix 'urn:oid:' followed by dot-separated numbers)")}]}
 
-   ;;
+   ;;others
    :fhir/boolean {:kind ::base
                   :validation [{:type :fn
                                 :value boolean?
                                 :issue (error-data "error" "structure" "The value must be a boolean")}]
                   :description "'true' or 'false'"}
-   
-  ;; base64Binary 
-  :fhir/base64 {:kind ::base
+
+   :fhir/base64 {:kind ::base
                  :validation [{:type :fn
                                :value string?
                                :issue (error-data "error" "structure" "The value must be a string")}
-                              
+
                               {:type :fn
                                :value not-blank-str?
                                :issue (error-data "error" "value" "The base64 content cannot be empty")}
@@ -222,18 +254,73 @@
                               {:type :fn
                                :value fhir-base64?
                                :issue (error-data "error" "invalid" "The value is not valid Base64 encoded data (RFC 4648)")}]
-                 :description "A stream of bytes, base64 encoded (RFC 4648)"}
+                 :description "A stream of bytes, base64 encoded (RFC 4648)"} 
+   
+   :fhir/decimal {:kind ::base
+                  :validation [{:type :fn
+                                :value number?
+                                :issue (error-data "error" "structure" "The value must be a number")}
+                               
+                               {:type :pattern
+                                :value #"-?(0|[1-9][0-9]{0,17})(\.[0-9]{1,17})?([eE][+-]?[0-9]{1,9})?"
+                                :issue (error-data "error" "value" "The decimal does not meet FHIR format (max 18 digits)")}]
+                  :description "Rational numbers that have a decimal representation, max 18 digits"}
 
-   ;; TODO: add :fhir/date-time
-   ;; TODO: add :fhir/date
-   ;; TODO: add :fhir/time
-   ;; TODO: add :fhir/instant
-   ;; TODO: add :fhir/decimal
-   ;; TODO: add :fhir/integer64 
-   })
+   ;; Date and Time
+   :fhir/date-time {:kind ::base
+                    :validation [{:type :fn
+                                  :value string?
+                                  :issue (error-data "error" "structure" "The value must be a string")}
+                                 
+                                 {:type :pattern
+                                  :value #"([0-9]([0-9]([0-9][1-9]|[1-9]0)|[1-9]00)|[1-9]000)(-(0[1-9]|1[0-2])(-(0[1-9]|[1-2][0-9]|3[0-1])(T([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)(\.[0-9]{1,9})?(Z|(\+|-)((0[0-9]|1[0-3]):[0-5][0-9]|14:00)?)?)?)?)?"
+                                  :issue (error-data "error" "invalid" "The value does not match the FHIR dateTime format")}
+                                 
+                                 {:type :fn
+                                  :value fhir-date-time?
+                                  :issue (error-data "error" "value" "The value is not a valid date")}]
+                    :description "A date, date-time or partial date as used in human communication"}
+
+   :fhir/date {:kind ::base
+               :validation [{:type :fn
+                             :value string?
+                             :issue (error-data "error" "structure" "The value must be a string")}
+                            
+                            {:type :pattern
+                             :value #"([0-9]([0-9]([0-9][1-9]|[1-9]0)|[1-9]00)|[1-9]000)(-(0[1-9]|1[0-2])(-(0[1-9]|[1-2][0-9]|3[0-1]))?)?"
+                             :isue (error-data "error" "invalid" "The value does not match the FHIR date format")}
+                            
+                            {:type :fn
+                             :value fhir-date?
+                             :issue (error-data "error" "value" "The value is not a valid date")}]
+               :description "A date or partial date (year, year-month, or full date)"}
+
+   :fhir/time {:kind ::base
+               :validation [{:type :fn
+                             :value string?
+                             :issue (error-data "error" "structure" "The value must be a string")}
+                            
+                            {:type :pattern
+                             :value #"([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)(\.[0-9]{1,9})?"
+                             :issue (error-data "error" "invalid" "The value does not match the FHIR time format (hh:mm:ss)")}]
+               :description "A time during the day, with no date specified (hh:mm:ss)"}
+
+   :fhir/instant {:kind ::base
+                  :validation [{:type :fn
+                                :value string?
+                                :issue (error-data "error" "structure" "The value must be a string")}
+                               
+                               {:type :pattern
+                                :value #"([0-9]([0-9]([0-9][1-9]|[1-9]0)|[1-9]00)|[1-9]000)-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1])T([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)(\.[0-9]{1,9})?(Z|(\+|-)((0[0-9]|1[0-3]):[0-5][0-9]|14:00))"
+                                :issue (error-data "error" "invalid" "The value does not match the FHIR instant format")}
+                               
+                               {:type :fn
+                                :value fhir-instant?
+                                :issue (error-data "error" "value" "The value is not a valid instant")}]
+                  :description "An instant in time, with mandatory full date, time and timezone offset"}})
 
 (comment
   ;; For cases like 'canonical', where a child type violates a parent constraint,
   ;; we can bypass that constraint by adding it to the :exclude vector.
-  ;; Supports either named functions or regular expressions. 
+  ;; Supports either named functions or regular expressions.  
   :.)
