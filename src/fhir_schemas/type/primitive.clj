@@ -112,6 +112,29 @@
            (fhir-instant? s)
            (fhir-date? date)))))
 
+(def fhir-regex
+  "A map of official FHIR regular expressions for primitive type validation.
+  Keys represent the type or format, and values are the compiled regex patterns"
+  {:code  #"[^\s]+( [^\s]+)*"
+   
+   :id #"[A-Za-z0-9\-\.]{1,64}"
+
+   :uuid #"urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+
+   :oid #"urn:oid:[0-2](\.(0|[1-9][0-9]*))+"
+
+   :decimal #"-?(0|[1-9][0-9]{0,17})(\.[0-9]{1,17})?([eE][+-]?[0-9]{1,9})?"
+
+   :base64 #"(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?"
+
+   :date-time #"([0-9]([0-9]([0-9][1-9]|[1-9]0)|[1-9]00)|[1-9]000)(-(0[1-9]|1[0-2])(-(0[1-9]|[1-2][0-9]|3[0-1])(T([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)(\.[0-9]{1,9})?(Z|(\+|-)((0[0-9]|1[0-3]):[0-5][0-9]|14:00)?)?)?)?)?"
+   
+   :date #"([0-9]([0-9]([0-9][1-9]|[1-9]0)|[1-9]00)|[1-9]000)(-(0[1-9]|1[0-2])(-(0[1-9]|[1-2][0-9]|3[0-1]))?)?"
+   
+   :time #"([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)(\.[0-9]{1,9})?"
+   
+   :instant #"([0-9]([0-9]([0-9][1-9]|[1-9]0)|[1-9]00)|[1-9]000)-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1])T([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)(\.[0-9]{1,9})?(Z|(\+|-)((0[0-9]|1[0-3]):[0-5][0-9]|14:00))"})
+
 (def registry
   "A map containing the definitions for FHIR primitive types. 
     Each entry specifies the kind of type (base or derived), its parent, 
@@ -137,13 +160,13 @@
 
                               {:type :fn
                                :value fhir-sized-str?
-                               :issue (error-data "error" "too-long" "The value length is over than 1048576 characters")}]
+                               :issue (error-data "error" "too-long" "The value exceeds the maximum length of 1048576 characters")}]
                  :description "A sequence of Unicode characters"}
 
    :fhir/code {:kind ::derived
                :based-on :fhir/string
                :validation [{:type :pattern
-                             :value #"[^\s]+( [^\s]+)*"
+                             :value (:code fhir-regex)
                              :issue (error-data "error" "invalid" "The code format is invalid (no leading/trailing or double spaces allowed)")}]
                :description "A string taken from a set of controlled strings defined elsewhere"}
 
@@ -154,7 +177,7 @@
    :fhir/id {:kind ::derived
              :based-on :fhir/string
              :validation [{:type :pattern
-                           :value #"[A-Za-z0-9\-\.]{1,64}"
+                           :value (:id fhir-regex)
                            :issue (error-data "error" "invalid" "The id does not match the required format (letters, numbers, dots, dashes, max 64 chars)")}]
              :description "Any combination of upper- or lower-case ASCII letters ('A'..'Z', and 'a'..'z', numerals ('0'..'9'), '-' and '.', with a length limit of 64 characters."}
 
@@ -225,15 +248,16 @@
    :fhir/uuid {:kind ::derived
                :based-on :fhir/uri
                :validation [{:type :pattern
-                             :value #"urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+                             :value (:uuid fhir-regex)
                              :issue (error-data "error" "invalid" "The value is not a valid UUID URN (must have the prefix 'urn:uuid:' followed by lowercase hexadecimal characters)")}]
                :description "A UUID represented as a URI; e.g., urn:uuid:c757873d-ec9a-4326-a141-556f43239520"}
 
    :fhir/oid {:kind ::derived
               :based-on :fhir/uri
               :validation [{:type :pattern
-                            :value #"urn:oid:[0-2](\.(0|[1-9][0-9]*))+"
-                            :issue (error-data "error" "invalid" "The value is not a valid OID URN (must have the prefix 'urn:oid:' followed by dot-separated numbers)")}]}
+                            :value (:oid fhir-regex)
+                            :issue (error-data "error" "invalid" "The value is not a valid OID URN (must have the prefix 'urn:oid:' followed by dot-separated numbers)")}]
+              :description "An OID represented as a URI; e.g., urn:oid:1.2.3.4.5"}
 
    ;;others
    :fhir/boolean {:kind ::base
@@ -251,18 +275,22 @@
                                :value not-blank-str?
                                :issue (error-data "error" "value" "The base64 content cannot be empty")}
 
+                              {:type :pattern
+                               :value (:base64 fhir-regex)
+                               :issue (error-data "error" "invalid" "The value contains invalid Base64 characters")}
+
                               {:type :fn
                                :value fhir-base64?
-                               :issue (error-data "error" "invalid" "The value is not valid Base64 encoded data (RFC 4648)")}]
-                 :description "A stream of bytes, base64 encoded (RFC 4648)"} 
-   
+                               :issue (error-data "error" "value" "The value is not valid Base64 encoded data (RFC 4648)")}]
+                 :description "A stream of bytes, base64 encoded (RFC 4648)"}
+
    :fhir/decimal {:kind ::base
                   :validation [{:type :fn
                                 :value number?
                                 :issue (error-data "error" "structure" "The value must be a number")}
-                               
+
                                {:type :pattern
-                                :value #"-?(0|[1-9][0-9]{0,17})(\.[0-9]{1,17})?([eE][+-]?[0-9]{1,9})?"
+                                :value (:decimal fhir-regex)
                                 :issue (error-data "error" "value" "The decimal does not meet FHIR format (max 18 digits)")}]
                   :description "Rational numbers that have a decimal representation, max 18 digits"}
 
@@ -270,12 +298,12 @@
    :fhir/date-time {:kind ::base
                     :validation [{:type :fn
                                   :value string?
-                                  :issue (error-data "error" "structure" "The value must be a string")}
-                                 
+                                  :issue (error-data "error" "structure" "The value must be a date-time-string")}
+
                                  {:type :pattern
-                                  :value #"([0-9]([0-9]([0-9][1-9]|[1-9]0)|[1-9]00)|[1-9]000)(-(0[1-9]|1[0-2])(-(0[1-9]|[1-2][0-9]|3[0-1])(T([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)(\.[0-9]{1,9})?(Z|(\+|-)((0[0-9]|1[0-3]):[0-5][0-9]|14:00)?)?)?)?)?"
+                                  :value (:date-time fhir-regex)
                                   :issue (error-data "error" "invalid" "The value does not match the FHIR dateTime format")}
-                                 
+
                                  {:type :fn
                                   :value fhir-date-time?
                                   :issue (error-data "error" "value" "The value is not a valid date")}]
@@ -284,12 +312,12 @@
    :fhir/date {:kind ::base
                :validation [{:type :fn
                              :value string?
-                             :issue (error-data "error" "structure" "The value must be a string")}
-                            
+                             :issue (error-data "error" "structure" "The value must be a date-string")}
+
                             {:type :pattern
-                             :value #"([0-9]([0-9]([0-9][1-9]|[1-9]0)|[1-9]00)|[1-9]000)(-(0[1-9]|1[0-2])(-(0[1-9]|[1-2][0-9]|3[0-1]))?)?"
-                             :isue (error-data "error" "invalid" "The value does not match the FHIR date format")}
-                            
+                             :value (:date fhir-regex)
+                             :issue (error-data "error" "invalid" "The value does not match the FHIR date format")}
+
                             {:type :fn
                              :value fhir-date?
                              :issue (error-data "error" "value" "The value is not a valid date")}]
@@ -298,10 +326,10 @@
    :fhir/time {:kind ::base
                :validation [{:type :fn
                              :value string?
-                             :issue (error-data "error" "structure" "The value must be a string")}
-                            
+                             :issue (error-data "error" "structure" "The value must be a time-string")}
+
                             {:type :pattern
-                             :value #"([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)(\.[0-9]{1,9})?"
+                             :value (:time fhir-regex)
                              :issue (error-data "error" "invalid" "The value does not match the FHIR time format (hh:mm:ss)")}]
                :description "A time during the day, with no date specified (hh:mm:ss)"}
 
@@ -309,11 +337,11 @@
                   :validation [{:type :fn
                                 :value string?
                                 :issue (error-data "error" "structure" "The value must be a string")}
-                               
+
                                {:type :pattern
-                                :value #"([0-9]([0-9]([0-9][1-9]|[1-9]0)|[1-9]00)|[1-9]000)-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1])T([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)(\.[0-9]{1,9})?(Z|(\+|-)((0[0-9]|1[0-3]):[0-5][0-9]|14:00))"
+                                :value (:instant fhir-regex)
                                 :issue (error-data "error" "invalid" "The value does not match the FHIR instant format")}
-                               
+
                                {:type :fn
                                 :value fhir-instant?
                                 :issue (error-data "error" "value" "The value is not a valid instant")}]
