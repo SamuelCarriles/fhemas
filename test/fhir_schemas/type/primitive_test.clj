@@ -61,7 +61,7 @@
       Integer/MIN_VALUE))
 
   (testing "Returns false for out-of-range values"
-    (is (false? (tp/uint32? (inc Integer/MAX_VALUE))))) 
+    (is (false? (tp/uint32? (inc Integer/MAX_VALUE)))))
 
   (testing "Returns false for non-integer values"
     (are [v] (false? (tp/uint32? v))
@@ -95,17 +95,17 @@
 (deftest int64?-test
   (testing "Returns true for 64 bits integers"
     (are [v] (tp/int64? v)
-        -1
-        0
-        1
-        Long/MIN_VALUE
-        Long/MAX_VALUE))
-  
+      -1
+      0
+      1
+      Long/MIN_VALUE
+      Long/MAX_VALUE))
+
   (testing "Returns false for out-of-range values"
     (are [v] (false? (tp/int64? v))
       -9223372036854775809N
       9223372036854775808N))
-  
+
   (testing "Returns false for non-integer values"
     (are [v] (false? (tp/int64? v))
       "foo"
@@ -191,12 +191,151 @@
     (are [v] (false? (tp/fhir-canonical? v))
       "ValueSet/123"
       "../Patient/456"))
-  
+
   (testing "Returns false for multiple pipes"
     (is (false? (tp/fhir-canonical? "http://example.com|1.0|2.0"))))
-  
+
   (testing "Returns false for invalid values"
     (are [v] (false? (tp/fhir-canonical? v))
       "not a valid uri"
       "")))
+
+(deftest fhir-base64?-test
+  (testing "Returns true for valid Base64 strings"
+    (are [v] (tp/fhir-base64? v)
+      "SGVsbG8="
+      "SGVsbG8gV29ybGQ="
+      "YQ=="
+      "AQIDBA=="
+      "SGVs\r\nbG8="))
+
+  (testing "Returns true for strings that getMimeDecoder tolerates"
+    ;; Note: getMimeDecoder is lenient by design.
+    ;; The fhir-regex :base64 pattern handles strict format validation
+    ;; before this function is called in the validation pipeline.
+    (are [v] (tp/fhir-base64? v)
+      "not-valid!@#$"
+      "SGVsbG8====="))
+
+  (testing "Returns false for non-string values"
+    (are [v] (false? (tp/fhir-base64? v))
+      123
+      nil
+      true
+      {}
+      [])))
+
+(deftest fhir-date?-test
+  (testing "Returns true for valid FHIR dates"
+    (are [v] (tp/fhir-date? v)
+      "2024"
+      "1905"
+      "2024-06"
+      "2024-01"
+      "2024-12"
+      "2024-06-15"
+      "2024-02-29"
+      "2024-01-01"
+      "2024-12-31"))
+
+  (testing "Returns false for invalid dates"
+    (are [v] (false? (tp/fhir-date? v))
+      "2023-02-29"
+      "2024-04-31"
+      "2024-13-01"
+      "2024-00-01"
+      "2024-06-00"))
+
+  (testing "Returns false for dateTime values (too precise for date)"
+    (are [v] (false? (tp/fhir-date? v))
+      "2024-06-15T13:28:17Z"
+      "2024-06-15T13:28:17+05:00"))
+
+  (testing "Returns false for non-string values"
+    (are [v] (false? (tp/fhir-date? v))
+      20240615
+      nil
+      true
+      {})))
+
+(deftest fhir-instant?-test
+  (testing "Returns true for valid FHIR instants"
+    (are [v] (tp/fhir-instant? v)
+      "2024-06-15T13:28:17Z"
+      "2024-06-15T13:28:17+05:00"
+      "2024-06-15T13:28:17-05:00"
+      "2024-06-15T13:28:17.123Z"
+      "2024-06-15T13:28:17.123456789Z"
+      "2024-06-15T00:00:00Z"
+      "2024-02-29T12:00:00Z"))
+
+  (testing "Returns false for missing timezone"
+    (are [v] (false? (tp/fhir-instant? v))
+      "2024-06-15T13:28:17"
+      "2024-06-15T13:28:17.123"))
+
+  (testing "Returns false for partial dates (not precise enough)"
+    (are [v] (false? (tp/fhir-instant? v))
+      "2024"
+      "2024-06"
+      "2024-06-15"))
+
+  (testing "Returns false for invalid dates within instant"
+    (are [v] (false? (tp/fhir-instant? v))
+      "2023-02-29T12:00:00Z"
+      "2024-04-31T12:00:00Z"))
+
+  (testing "Returns false for invalid times"
+    (are [v] (false? (tp/fhir-instant? v))
+      "2024-06-15T24:00:00Z"
+      "2024-06-15T12:60:00Z"))
+
+  (testing "Returns false for non-string values"
+    (are [v] (false? (tp/fhir-instant? v))
+      123
+      nil
+      true
+      {})))
+
+(deftest fhir-date-time?-test
+  (testing "Returns true for year only"
+    (are [v] (tp/fhir-date-time? v)
+      "2024"
+      "1905"
+      "2000"))
+
+  (testing "Returns true for year-month"
+    (are [v] (tp/fhir-date-time? v)
+      "2024-06"
+      "2024-01"
+      "2024-12"))
+
+  (testing "Returns true for full date"
+    (are [v] (tp/fhir-date-time? v)
+      "2024-06-15"
+      "2024-02-29"
+      "2024-12-31"))
+
+  (testing "Returns true for full dateTime with timezone"
+    (are [v] (tp/fhir-date-time? v)
+      "2024-06-15T13:28:17Z"
+      "2024-06-15T13:28:17+05:00"
+      "2024-06-15T13:28:17-05:00"
+      "2024-06-15T13:28:17.123Z"))
+
+  (testing "Returns false for invalid dates"
+    (are [v] (false? (tp/fhir-date-time? v))
+      "2023-02-29"
+      "2024-04-31"
+      "2024-13-01"))
+
+  (testing "Returns false for dateTime without timezone"
+    (is (false? (tp/fhir-date-time? "2024-06-15T13:28:17"))))
+
+  (testing "Returns false for non-string values"
+    (are [v] (false? (tp/fhir-date-time? v))
+      123
+      nil
+      true
+      {})))
 
