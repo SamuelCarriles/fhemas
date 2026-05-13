@@ -15,4 +15,5 @@ pom.xml.asc
 .calva
 .clj-kondo/
 .lsp/
+*.structure_definitions
 docs
