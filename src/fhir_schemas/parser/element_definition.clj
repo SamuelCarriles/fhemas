@@ -6,7 +6,15 @@
 
 (def ^:private fhir-type-ext-url "http://hl7.org/fhir/StructureDefinition/structuredefinition-fhir-type")
 
-(def ^:private fhirpath-system-prefix "http://hl7.org/fhirpath/System.")
+(def ^:private fhirpath-system-types
+  #{"http://hl7.org/fhirpath/System.String"
+    "http://hl7.org/fhirpath/System.Boolean"
+    "http://hl7.org/fhirpath/System.Integer"
+    "http://hl7.org/fhirpath/System.Decimal"
+    "http://hl7.org/fhirpath/System.Date"
+    "http://hl7.org/fhirpath/System.DateTime"
+    "http://hl7.org/fhirpath/System.Time"
+    "http://hl7.org/fhirpath/System.Quantity"})
 
 (def ^com.fasterxml.jackson.databind.ObjectMapper
   fhir-mapper
@@ -48,7 +56,7 @@
     "Returns true if `s` is a FHIRPath System type"
     [^String s]
     (and (string? s)
-         (str/starts-with? s fhirpath-system-prefix)))
+         (contains? fhirpath-system-types s)))
 
   (defn fhirpath-type->fhir-type
     "Resolves a FHIRPath System type to its FHIR type by extracting the value 
