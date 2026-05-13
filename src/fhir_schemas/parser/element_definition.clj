@@ -73,6 +73,17 @@
   (defn normalize-type
     "Normalizes a single type definition object"
     [m]
+    (when-not (map? m)
+      (throw (err/info :invalid/type
+                       {:message "Each type definition must be a map"
+                        :scope #'normalize-type
+                        :value m
+                        :expected [clojure.lang.PersistentArrayMap]})))
+    (when-not (:code m)
+      (throw (err/info :missing/field
+                       {:message "Each type definition must have a 'code' field"
+                        :scope #'normalize-type 
+                        :field :code})))
     (cond-> m
       (fhirpath-type? (:code m))
       (assoc :code (fhirpath-type->fhir-type (:extension m)))
@@ -146,7 +157,6 @@
        (mapv cardinality)
        (elements->map))
        (catch Exception e (ex-data e)))
-
 
 
 

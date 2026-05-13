@@ -30,3 +30,11 @@
             :details {:field field
                       :cardinality cardinality
                       :expected expected}}))
+
+(defmethod info :missing/field
+  [code {:keys [scope message field]}]
+  (ex-info message
+           {:scope scope
+            :operation :parse
+            :code code
+            :details {:field field}}))
