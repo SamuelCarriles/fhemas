@@ -6,6 +6,7 @@
   [code {:keys [scope message value expected]}]
   (ex-info message
            {:scope scope
+            :operation :parse
             :code code
             :details {:value value
                       :expected expected}}))
@@ -18,4 +19,14 @@
             :code code
             :details {:value value
                       :type (type value)
+                      :expected expected}}))
+
+(defmethod info :invalid/cardinality
+  [code {:keys [scope message field cardinality expected]}]
+  (ex-info message
+           {:scope scope
+            :operation :parse
+            :code code
+            :details {:field field
+                      :cardinality cardinality
                       :expected expected}}))

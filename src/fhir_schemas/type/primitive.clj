@@ -1,9 +1,15 @@
 (ns fhir-schemas.type.primitive
-  (:require [clojure.string :as str]
-            [fhir-schemas.util :refer [error-data]])
+  (:require [clojure.string :as str])
   (:import [java.net URI]
            [java.util Base64]
            [java.time Year YearMonth LocalDate OffsetDateTime]))
+
+(defn- error-data
+  "Returns a FHIR-compliant OperationOutcome issue map with the given severity, code, and diagnostics message"
+  [^String severity ^String code ^String message]
+  {:severity severity
+   :code code
+   :diagnostics message})
 
 (defn not-blank-str?
   "Returns true if `s` is a non-blank string, else false"
@@ -135,6 +141,8 @@
    
    :instant #"([0-9]([0-9]([0-9][1-9]|[1-9]0)|[1-9]00)|[1-9]000)-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1])T([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)(\.[0-9]{1,9})?(Z|(\+|-)((0[0-9]|1[0-3]):[0-5][0-9]|14:00))"})
 
+
+;; TODO: cambiar nombre a type->definition y los nombres de cada type a :fhir.type/string, etc.
 (def registry
   "A map containing the definitions for FHIR primitive types. 
     Each entry specifies the kind of type (base or derived), its parent, 
