@@ -53,66 +53,83 @@
                       :expected [java.lang.String]}))))
 
 (defn fhirpath-type?
-    "Returns true if `s` is a FHIRPath System type"
-    [^String s]
-    (and (string? s)
-         (contains? fhirpath-system-types s)))
+  "Returns true if `s` is a FHIRPath System type"
+  [^String s]
+  (and (string? s)
+       (contains? fhirpath-system-types s)))
 
-  (defn fhirpath-type->fhir-type
-    "Resolves a FHIRPath System type to its FHIR type by extracting the value 
+(defn fhirpath-type->fhir-type
+  "Resolves a FHIRPath System type to its FHIR type by extracting the value 
    from the 'structuredefinition-fhir-type' extension. Expects exactly one 
    matching extension; throws :invalid/cardinality otherwise"
-    [extensions]
-    (let [matches (filter #(= fhir-type-ext-url (:url %)) extensions)
-          c-matches (count matches)]
-      (case c-matches
+  [extensions]
 
-        1 (:value-url (first matches))
+  (when (nil? extensions)
+        (throw (err/info :missing/field
+                         {:message "Extensions field is required to resolve FHIRPath System type"
+                          :scope #'fhirpath-type->fhir-type
+                          :field :extension})))
+  (when-not (vector? extensions)
+            (throw (err/info :invalid/type
+                             {:message "The 'extension' field must be an array of extension objects"
+                              :scope   #'fhirpath-type->fhir-type
+                              :value   extensions
+                              :expected [clojure.lang.PersistentVector]})))
 
-        (throw (err/info :invalid/cardinality {:message (format "%s '%s' extensions found to resolve the FHIRPath Type"
-                                                                (if (zero? c-matches) "Zero" "Too many")
-                                                                fhir-type-ext-url)
-                                               :scope #'fhirpath-type->fhir-type
-                                               :field :extension
-                                               :cardinality c-matches
-                                               :expected [1]})))))
+  (let [matches (filter #(= fhir-type-ext-url (:url %)) extensions)
+        c-matches (count matches)]
+    (case c-matches
 
+      1 (:value-url (first matches))
+
+      (throw (err/info :invalid/cardinality
+                       {:message (format "%s '%s' extensions found to resolve the FHIRPath Type"
+                                         (if (zero? c-matches) "Zero" "Too many")
+                                         fhir-type-ext-url)
+                        :scope #'fhirpath-type->fhir-type
+                        :field :extension
+                        :cardinality c-matches
+                        :expected [1]})))))
+
+
+(defn normalize-type
+  "Normalizes a single type definition object"
+  [m]
   
-  (defn normalize-type
-    "Normalizes a single type definition object"
-    [m]
-    (when-not (map? m)
-      (throw (err/info :invalid/type
-                       {:message "Each type definition must be a map"
-                        :scope #'normalize-type
-                        :value m
-                        :expected [clojure.lang.PersistentArrayMap]})))
-    (when-not (:code m)
-      (throw (err/info :missing/field
-                       {:message "Each type definition must have a 'code' field"
-                        :scope #'normalize-type 
-                        :field :code})))
-    (cond-> m
-      (fhirpath-type? (:code m))
-      (assoc :code (fhirpath-type->fhir-type (:extension m)))
-
-      (:code m)
-      (update :code #(keyword "fhir.type" %))))
-
+  (when-not (map? m)
+        (throw (err/info :invalid/type
+                         {:message "Each type definition must be a map"
+                          :scope #'normalize-type
+                          :value m
+                          :expected [clojure.lang.PersistentArrayMap]})))
   
+  (when-not (:code m)
+            (throw (err/info :missing/field
+                             {:message "Each type definition must have a 'code' field"
+                              :scope #'normalize-type
+                              :field :code})))
 
-  (defn parse-type
-    "Parses an array of ElementDefinition.type objects into normalized type definitions.
+  (cond-> m
+    (fhirpath-type? (:code m))
+    (assoc :code (fhirpath-type->fhir-type (:extension m)))
+
+    (:code m)
+    (update :code #(keyword "fhir.type" %))))
+
+
+
+(defn parse-type
+  "Parses an array of ElementDefinition.type objects into normalized type definitions.
    Expects a vector of maps. Each map must have a :code field"
-    [types]
-    (if (vector? types)
-      (mapv normalize-type types)
+  [types]
+  (if (vector? types)
+    (mapv normalize-type types)
 
-      (throw (err/info :invalid/type
-                       {:message "The 'type' value must be an array of type-objects"
-                        :scope #'parse-type
-                        :value types
-                        :expected [clojure.lang.PersistentVector]}))))
+    (throw (err/info :invalid/type
+                     {:message "The 'type' value must be an array of type-objects"
+                      :scope #'parse-type
+                      :value types
+                      :expected [clojure.lang.PersistentVector]}))))
 
 (defmulti parse-prop
   "Parses and normalizes a specific property of an ElementDefinition"
@@ -161,9 +178,9 @@
           (assoc :fhir/cardinality limits))))
 
   (try (->> [{:path "Patient.name" :type [{:code "string"}] :min 1 :max "1" :constraint {}}]
-       (map parse-properties)
-       (mapv cardinality)
-       (elements->map))
+            (map parse-properties)
+            (mapv cardinality)
+            (elements->map))
        (catch Exception e (ex-data e)))
 
 
