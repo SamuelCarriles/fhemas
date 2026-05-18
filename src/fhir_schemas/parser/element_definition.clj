@@ -65,16 +65,16 @@
   [extensions]
 
   (when (nil? extensions)
-        (throw (err/info :missing/field
-                         {:message "Extensions field is required to resolve FHIRPath System type"
-                          :scope #'fhirpath-type->fhir-type
-                          :field :extension})))
+    (throw (err/info :missing/field
+                     {:message "Extensions field is required to resolve FHIRPath System type"
+                      :scope #'fhirpath-type->fhir-type
+                      :field :extension})))
   (when-not (vector? extensions)
-            (throw (err/info :invalid/type
-                             {:message "The 'extension' field must be an array of extension objects"
-                              :scope   #'fhirpath-type->fhir-type
-                              :value   extensions
-                              :expected [clojure.lang.PersistentVector]})))
+    (throw (err/info :invalid/type
+                     {:message "The 'extension' field must be an array of extension objects"
+                      :scope   #'fhirpath-type->fhir-type
+                      :value   extensions
+                      :expected [clojure.lang.PersistentVector]})))
 
   (let [matches (filter #(= fhir-type-ext-url (:url %)) extensions)
         c-matches (count matches)]
@@ -95,19 +95,19 @@
 (defn normalize-type
   "Normalizes a single type definition object"
   [m]
-  
+
   (when-not (map? m)
-        (throw (err/info :invalid/type
-                         {:message "Each type definition must be a map"
-                          :scope #'normalize-type
-                          :value m
-                          :expected [clojure.lang.PersistentArrayMap]})))
-  
+    (throw (err/info :invalid/type
+                     {:message "Each type definition must be a map"
+                      :scope #'normalize-type
+                      :value m
+                      :expected [clojure.lang.PersistentArrayMap]})))
+
   (when-not (:code m)
-            (throw (err/info :missing/field
-                             {:message "Each type definition must have a 'code' field"
-                              :scope #'normalize-type
-                              :field :code})))
+    (throw (err/info :missing/field
+                     {:message "Each type definition must have a 'code' field"
+                      :scope #'normalize-type
+                      :field :code})))
 
   (cond-> m
     (fhirpath-type? (:code m))
@@ -122,14 +122,28 @@
   "Parses an array of ElementDefinition.type objects into normalized type definitions.
    Expects a vector of maps. Each map must have a :code field"
   [types]
-  (if (vector? types)
-    (mapv normalize-type types)
-
+  (when-not (vector? types)
     (throw (err/info :invalid/type
                      {:message "The 'type' value must be an array of type-objects"
                       :scope #'parse-type
                       :value types
-                      :expected [clojure.lang.PersistentVector]}))))
+                      :expected [clojure.lang.PersistentVector]})))
+  
+  (mapv normalize-type types))
+
+(defn parse-binding
+  "Normalizes the binding property. Converts strength to keyword when present."
+  [m]
+  (when-not (map? m)
+    (throw (err/info :invalid/type
+                     {:message "The 'binding' value must be an object (clojure map)"
+                      :scope #'parse-binding
+                      :value m
+                      :expected [clojure.lang.IPersistentMap]})))
+
+  (cond-> m
+    (:strength m)
+    (update :strength keyword)))
 
 (defmulti parse-prop
   "Parses and normalizes a specific property of an ElementDefinition"
@@ -146,11 +160,22 @@
 (defmethod parse-prop :type [_ x]
   (parse-type x))
 
+(defmethod parse-prop :binding [_ x]
+  (parse-binding x))
+
+(defn parse-field
+  [m]
+  (reduce-kv
+   (fn [acc k v]
+     (assoc acc k (parse-prop k v)))
+   {} m))
+
 (defn elements->map
   [elements]
   (reduce (fn [acc curr]
-            (let [path (:path curr)
-                  data (dissoc curr :path)]
+            (let [field (parse-field curr)
+                  path (:path field)
+                  data (dissoc field :path)]
               (assoc acc path data)))
           {} elements))
 
@@ -164,12 +189,7 @@
                        slurp
                        (j/read-value fhir-mapper))
         elements (get-in elementdef [:snapshot :element])]
-    (keys (first elements)))
-
-  (defn parse-properties [m]
-    (reduce-kv (fn [m k v]
-                 (assoc m k (parse-prop k v)))
-               {} m))
+    (keys (first elements))) 
 
   (defn cardinality [m]
     (let [{:keys [min max]} m
@@ -177,9 +197,8 @@
       (-> (dissoc m :min :max)
           (assoc :fhir/cardinality limits))))
 
-  (try (->> [{:path "Patient.name" :type [{:code "string"}] :min 1 :max "1" :constraint {}}]
-            (map parse-properties)
-            (mapv cardinality)
+  (try (->> [{:path "Patient.name" :type [{:code "string"}] :min 0 :max "1" :constraint {}}]
+            #_(mapv cardinality)
             (elements->map))
        (catch Exception e (ex-data e)))
 
