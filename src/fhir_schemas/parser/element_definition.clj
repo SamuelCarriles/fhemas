@@ -74,7 +74,7 @@
                      {:message "The 'extension' field must be an array of extension objects"
                       :scope   #'fhirpath-type->fhir-type
                       :value   extensions
-                      :expected [clojure.lang.PersistentVector]})))
+                      :expected [clojure.lang.IPersistentVector]})))
 
   (let [matches (filter #(= fhir-type-ext-url (:url %)) extensions)
         c-matches (count matches)]
@@ -90,7 +90,6 @@
                         :field :extension
                         :cardinality c-matches
                         :expected [1]})))))
-
 
 (defn normalize-type
   "Normalizes a single type definition object"
@@ -116,8 +115,6 @@
     (:code m)
     (update :code #(keyword "fhir.type" %))))
 
-
-
 (defn parse-type
   "Parses an array of ElementDefinition.type objects into normalized type definitions.
    Expects a vector of maps. Each map must have a :code field"
@@ -127,8 +124,8 @@
                      {:message "The 'type' value must be an array of type-objects"
                       :scope #'parse-type
                       :value types
-                      :expected [clojure.lang.PersistentVector]})))
-  
+                      :expected [clojure.lang.IPersistentVector]})))
+
   (mapv normalize-type types))
 
 (defn parse-binding
@@ -144,6 +141,30 @@
   (cond-> m
     (:strength m)
     (update :strength keyword)))
+
+(defn normalize-constraint
+  "Normalizes a single constraint object. Converts severity to keyword when present."
+  [m]
+  (when-not (map? m)
+    (throw (err/info :invalid/type
+                     {:message "Each constraint definition must be an object (clojure map)"
+                      :scope   #'normalize-constraint
+                      :value   m
+                      :expected [clojure.lang.IPersistentMap]})))
+  (cond-> m
+    (:severity m) (update :severity keyword)))
+
+(defn parse-constraint
+  "Parses an array of constraint objects."
+  [constraints]
+  (when-not (vector? constraints)
+    (throw (err/info :invalid/type
+                     {:message "The 'constraint' value must be an array of constraint objects"
+                      :scope   #'parse-constraint
+                      :value   constraints
+                      :expected [clojure.lang.IPersistentVector]})))
+
+  (mapv normalize-constraint constraints))
 
 (defmulti parse-prop
   "Parses and normalizes a specific property of an ElementDefinition"
@@ -163,6 +184,9 @@
 (defmethod parse-prop :binding [_ x]
   (parse-binding x))
 
+(defmethod parse-prop :constraint [_ x]
+  (parse-constraint x))
+
 (defn parse-field
   [m]
   (reduce-kv
@@ -179,17 +203,13 @@
               (assoc acc path data)))
           {} elements))
 
-
-
-
-
 (comment
   ;; Si max es * significa que no hay límite de cantidad, por lo tanto que exista max en ese caso es redundante, mejor se disocia del mapa
   (let [elementdef (-> (clojure.java.io/resource "structure_definitions/example.json")
                        slurp
                        (j/read-value fhir-mapper))
         elements (get-in elementdef [:snapshot :element])]
-    (keys (first elements))) 
+    (keys (first elements)))
 
   (defn cardinality [m]
     (let [{:keys [min max]} m
@@ -201,7 +221,5 @@
             #_(mapv cardinality)
             (elements->map))
        (catch Exception e (ex-data e)))
-
-
 
   :.)

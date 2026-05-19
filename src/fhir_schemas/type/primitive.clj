@@ -122,7 +122,7 @@
   "A map of official FHIR regular expressions for primitive type validation.
   Keys represent the type or format, and values are the compiled regex patterns"
   {:code  #"[^\s]+( [^\s]+)*"
-   
+
    :id #"[A-Za-z0-9\-\.]{1,64}"
 
    :uuid #"urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
@@ -134,15 +134,14 @@
    :base64 #"(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?"
 
    :date-time #"([0-9]([0-9]([0-9][1-9]|[1-9]0)|[1-9]00)|[1-9]000)(-(0[1-9]|1[0-2])(-(0[1-9]|[1-2][0-9]|3[0-1])(T([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)(\.[0-9]{1,9})?(Z|(\+|-)((0[0-9]|1[0-3]):[0-5][0-9]|14:00)?)?)?)?)?"
-   
+
    :date #"([0-9]([0-9]([0-9][1-9]|[1-9]0)|[1-9]00)|[1-9]000)(-(0[1-9]|1[0-2])(-(0[1-9]|[1-2][0-9]|3[0-1]))?)?"
-   
+
    :time #"([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)(\.[0-9]{1,9})?"
-   
+
    :instant #"([0-9]([0-9]([0-9][1-9]|[1-9]0)|[1-9]00)|[1-9]000)-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1])T([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)(\.[0-9]{1,9})?(Z|(\+|-)((0[0-9]|1[0-3]):[0-5][0-9]|14:00))"})
 
-
-;; TODO: cambiar nombre a type->definition y los nombres de cada type a :fhir.type/string, etc.
+;; PERF: cambiar nombre a type->definition y los nombres de cada type a :fhir.type/string, etc.
 (def registry
   "A map containing the definitions for FHIR primitive types. 
     Each entry specifies the kind of type (base or derived), its parent, 
