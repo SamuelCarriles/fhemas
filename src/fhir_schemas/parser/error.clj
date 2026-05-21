@@ -13,7 +13,7 @@
 
 (defmethod info :invalid/type
   [code {:keys [scope message value expected]}]
-  (ex-info message 
+  (ex-info message
            {:scope scope
             :operation :parse
             :code code
@@ -29,6 +29,15 @@
             :code code
             :details {:field field
                       :cardinality cardinality
+                      :expected expected}}))
+
+(defmethod info :invalid/format
+  [code {:keys [scope message value expected]}]
+  (ex-info message
+           {:scope scope
+            :operation :parse
+            :code code
+            :details {:format value
                       :expected expected}}))
 
 (defmethod info :missing/field

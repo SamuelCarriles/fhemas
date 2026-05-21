@@ -226,7 +226,7 @@
       [])))
 
 (deftest fhir-date?-test
-  (testing "Returns true for valid FHIR dates"
+  (testing "returns true for valid fhir dates"
     (are [v] (tp/fhir-date? v)
       "2024"
       "1905"
@@ -339,3 +339,42 @@
       true
       {})))
 
+(deftest primitive?-test
+  (testing "Returns true for valid primitive types"
+    (are [v] (true? (tp/primitive? v))
+      "string"
+      "boolean"
+      "integer"
+      "integer64"
+      "decimal"
+      "uri"
+      "url"
+      "canonical"
+      "uuid"
+      "oid"
+      "code"
+      "id"
+      "markdown"
+      "base64-binary"
+      "instant"
+      "date"
+      "date-time"
+      "time"
+      "unsigned-int"
+      "positive-int"))
+
+  (testing "Returns false for complex types"
+    (are [v] (false? (tp/primitive? v))
+      "human-name"
+      "codeable-concept"
+      "reference"
+      "extension"
+      "address"
+      "period"))
+
+  (testing "Returns false for non-existent types"
+    (are [v] (false? (tp/primitive? v))
+      "banana"
+      "foo-bar"
+      ""
+      "String")))

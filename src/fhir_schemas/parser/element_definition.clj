@@ -2,7 +2,8 @@
   (:require [camel-snake-kebab.core :as csk]
             [jsonista.core :as j]
             [clojure.string :as str]
-            [fhir-schemas.parser.error :as err]))
+            [fhir-schemas.parser.error :as err]
+            [fhir-schemas.type.primitive :as tp]))
 
 (def ^:private fhir-type-ext-url "http://hl7.org/fhir/StructureDefinition/structuredefinition-fhir-type")
 
@@ -22,6 +23,9 @@
   (j/object-mapper
    {:decode-key-fn csk/->kebab-case-keyword
     :bigdecimals true}))
+
+;; NOTE: Parser functions are separeted of their methods to make easy
+;; the tests and refactors
 
 (defn parse-path
   "Parses an ElementDefinition path string into a vector of kebab-case keywords.
@@ -91,6 +95,13 @@
                         :cardinality c-matches
                         :expected [1]})))))
 
+(defn- type-namespace
+  [^String s]
+  (if (and (string? s)
+           (tp/primitive? s))
+    "fhir-schemas.type.primitive"
+    "fhir-schemas.type.complex"))
+
 (defn normalize-type
   "Normalizes a single type definition object"
   [m]
@@ -113,7 +124,8 @@
     (assoc :code (fhirpath-type->fhir-type (:extension m)))
 
     (:code m)
-    (update :code #(keyword "fhir.type" %))))
+    (update :code #(let [kebab-type (csk/->kebab-case %)]
+                     (keyword (type-namespace kebab-type) kebab-type)))))
 
 (defn parse-type
   "Parses an array of ElementDefinition.type objects into normalized type definitions.
@@ -166,6 +178,28 @@
 
   (mapv normalize-constraint constraints))
 
+(defn parse-content-reference
+  "Parses a contentReference string to a vector of keywords
+  e.g. \"Bundle.entry.request\" => [:bundle :entry :request]"
+  [^String s]
+  (when-not (string? s)
+    (throw (err/info :invalid/type
+                     {:message "The 'contentReference' value must be a string"
+                      :scope #'parse-content-reference
+                      :value s
+                      :expected [java.lang.String]})))
+
+  (when-not (str/starts-with? s "#")
+    (throw (err/info :invalid/format
+                     {:message "The 'contentReference' value must start with '#'"
+                      :scope #'parse-content-reference
+                      :value s
+                      :expected [#"^#.*$"]})))
+
+  (parse-path (subs s 1)))
+
+;; NOTE: Parse methods
+
 (defmulti parse-prop
   "Parses and normalizes a specific property of an ElementDefinition"
   (fn [field _] field))
@@ -187,11 +221,17 @@
 (defmethod parse-prop :constraint [_ x]
   (parse-constraint x))
 
+(defmethod parse-prop  :content-reference
+  [_ x]
+  (parse-content-reference x))
+
 (defn parse-field
   [m]
   (reduce-kv
    (fn [acc k v]
-     (assoc acc k (parse-prop k v)))
+     (if-let [new-val (parse-prop k v)]
+       (assoc acc k new-val)
+       acc))
    {} m))
 
 (defn elements->map
@@ -202,24 +242,3 @@
                   data (dissoc field :path)]
               (assoc acc path data)))
           {} elements))
-
-(comment
-  ;; Si max es * significa que no hay límite de cantidad, por lo tanto que exista max en ese caso es redundante, mejor se disocia del mapa
-  (let [elementdef (-> (clojure.java.io/resource "structure_definitions/example.json")
-                       slurp
-                       (j/read-value fhir-mapper))
-        elements (get-in elementdef [:snapshot :element])]
-    (keys (first elements)))
-
-  (defn cardinality [m]
-    (let [{:keys [min max]} m
-          limits (into #{} (remove nil? [min max]))]
-      (-> (dissoc m :min :max)
-          (assoc :fhir/cardinality limits))))
-
-  (try (->> [{:path "Patient.name" :type [{:code "string"}] :min 0 :max "1" :constraint {}}]
-            #_(mapv cardinality)
-            (elements->map))
-       (catch Exception e (ex-data e)))
-
-  :.)
