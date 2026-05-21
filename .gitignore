@@ -13,4 +13,7 @@ pom.xml.asc
 .nrepl-port
 .cpcache/
 .calva
+.clj-kondo/
+.lsp/
+*.structure_definitions
 docs
