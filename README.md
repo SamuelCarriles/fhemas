@@ -1,6 +1,4 @@
-[![Status: Alpha](https://img.shields.io/badge/status-alpha-orange.svg)](#)
-
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](#)
+[![Status: Alpha](https://img.shields.io/badge/status-alpha-orange.svg)](#) [![License](https://img.shields.io/badge/license-MIT-blue.svg)](#)
 
 # fhir-schemas
 
