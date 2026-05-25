@@ -363,6 +363,11 @@
       "unsigned-int"
       "positive-int"))
 
+  (testing "Returns true for keywords"
+    (are [v] (true? (tp/primitive? v))
+      :base64-binary
+      :date-time))
+
   (testing "Returns false for complex types"
     (are [v] (false? (tp/primitive? v))
       "human-name"
@@ -377,4 +382,4 @@
       "banana"
       "foo-bar"
       ""
-      "String")))
+      "Str")))
