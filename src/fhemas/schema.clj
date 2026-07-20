@@ -1,0 +1,76 @@
+(ns fhemas.schema
+  (:require
+   [clojure.string :as str]
+   [clojure.java.io :as jio]
+   [malli.core :as m]
+   [malli.registry :as mr]
+   [malli.error :as me]
+   [fhemas.error :as error]))
+
+(defn not-blank-str? [s]
+  (and (string? s)
+       (not (str/blank? s))))
+
+(defn url? [s]
+  (try
+    (jio/as-url s)
+    (catch Exception _ false)))
+
+(def registry
+  (mr/composite-registry
+   (m/default-schemas)
+   {::not-blank-str [:fn {:error/message "must be a non blank string"} not-blank-str?]
+    ::url [:fn {:error/message "must be a valid URL"} url?]}))
+
+(def Field
+  [:map
+   [:path [:or
+           [:vector :keyword]
+           [:map
+            [:re-str ::not-blank-str]]]]
+   [:type {:optional true} [:or :keyword [:vector :keyword]]]
+   [:min {:optional true} [:int {:min 1}]]
+   [:max {:optional true} [:int {:min 1}]]
+   [:constraint {:optional true} [:map-of :keyword :any]]
+   [:compile-as {:optional true} :qualified-keyword]])
+
+(def Elements
+  [:map
+   [:snapshot {:optional true}
+    [:map
+     [:path [:vector :keyword]]]]
+   [:differential {:optional true}
+    [:map
+     [:path [:vector :keyword]]]]
+   [:fields [:vector Field]]])
+
+(def SchemaProfile
+  [:map
+   [:resource-type [:= "SchemaProfile"]]
+   [:id {:optional true} ::not-blank-str]
+   [:url ::url]
+   [:version ::not-blank-str]
+   [:title {:optional true} ::not-blank-str]
+   [:status [:enum :active :draft :retired :unknown]]
+   [:description {:optional true} ::not-blank-str]
+   [:fhir-version ::not-blank-str]
+   [:source ::url]
+   [:schema
+    [:map
+     [:meta [:vector Field]]
+     [:definition [:vector Field]]
+     [:invariants [:vector Field]]
+     [:elements Elements]]]])
+
+(defn validate-schema [schema x error-msg]
+  (if-let [explain (m/explain schema x {:registry registry})]
+    (throw (error/info :invalid/schema
+                       {:message error-msg
+                        :scope :fhemas.schema
+                        :operation :validate-schema
+                        :details (me/humanize explain)}))
+    x))
+
+(defn validate-schema-profile [m]
+  (validate-schema SchemaProfile m "Invalid SchemaProfile"))
+

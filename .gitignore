@@ -17,3 +17,5 @@ pom.xml.asc
 .lsp/
 *.structure_definitions
 docs
+/resources
+*.zip

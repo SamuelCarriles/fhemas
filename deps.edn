@@ -1,7 +1,8 @@
 {:paths ["src" "resources"]
  :deps {org.clojure/clojure {:mvn/version "1.12.5-alpha1"}
         camel-snake-kebab/camel-snake-kebab {:mvn/version "0.4.3"}
-        metosin/jsonista {:mvn/version "1.0.0"}}
+        metosin/jsonista {:mvn/version "1.0.0"}
+        metosin/malli {:mvn/version "0.20.1"}}
 
  :aliases {:test
            {:extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}}
