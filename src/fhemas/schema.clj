@@ -35,14 +35,19 @@
    [:compile-as {:optional true} :qualified-keyword]])
 
 (def Elements
-  [:map
-   [:snapshot {:optional true}
-    [:map
-     [:path [:vector :keyword]]]]
-   [:differential {:optional true}
-    [:map
-     [:path [:vector :keyword]]]]
-   [:fields [:vector Field]]])
+  [:and
+   [:fn {:error/message "must provide either: snapshot or differential"}
+    (fn [{:keys [snapshot differential]}]
+      (or snapshot differential))]
+
+   [:map
+    [:snapshot {:optional true}
+     [:map
+      [:path [:vector :keyword]]]]
+    [:differential {:optional true}
+     [:map
+      [:path [:vector :keyword]]]]
+    [:fields [:vector Field]]]])
 
 (def SchemaProfile
   [:map
