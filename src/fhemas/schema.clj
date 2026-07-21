@@ -31,8 +31,8 @@
    [:type {:optional true} [:or :keyword [:vector :keyword]]]
    [:min {:optional true} [:int {:min 1}]]
    [:max {:optional true} [:int {:min 1}]]
-   [:constraint {:optional true} [:map-of :keyword :any]]
-   [:compile-as {:optional true} :qualified-keyword]])
+   [:compile/field {:optional true} :qualified-keyword]
+   [:compile/with-group {:optional true} :qualified-keyword]])
 
 (def Elements
   [:and
