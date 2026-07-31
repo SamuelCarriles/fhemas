@@ -46,6 +46,28 @@ for current progress and planned work.
   engine. Behavior (hard error / warning / skip) is configurable by the
   implementer.
 
+## Configuration philosophy
+
+Per the FHIR spec (validation.html, 7.6.1): full validation, especially
+terminology, can be computationally expensive, and production use may need
+to tolerate imperfect data that development environments would reject.
+Following Postel's law (conservative in what you send, liberal in what you
+accept), fhemas does not hardcode a single strictness level.
+
+Validation strictness is configurable **per pipeline aspect** (e.g.
+Cardinality, Bindings, Invariants), not as a single global on/off switch —
+a consumer may need Structure to fail hard (security: malicious narrative
+content) while treating Bindings as a warning (cost: avoids expensive
+terminology lookups) in the same run.
+
+This configuration is passed via a context map at validation time (not a
+stateful object) — consistent with fhemas staying data-driven throughout.
+Sensible defaults are provided so a consumer isn't forced to configure
+every aspect explicitly; defaults can be overridden granularly.
+
+Exact default values and the full shape of this configuration are still
+being designed — see the roadmap.
+
 ## How it works
 
 ### SchemaProfile
@@ -90,7 +112,7 @@ is the recommended source. Loading a SchemaProfile from an untrusted source
 means trusting arbitrary code resolution.
 
 **Practical requirement**: the namespace containing the compile functions
-(e.g. `fhemas.compile.r4`) must be `require` in the consumer's runtime for
+(e.g. `fhemas.compile.r4`) must be `require`d in the consumer's runtime for
 `resolve` to find it. If it isn't required, resolution silently fails.
 
 ## Validation pipeline (build order)
@@ -106,12 +128,12 @@ declares or a consumer can reconfigure.
 - **Optimization**: aspects are independent of each other, but one runs
   first because it's cheaper to compute, enabling fail-fast.
 
-| Step | Aspect                                             | Ordering reason                                                                                                                                                                                           |
-| ---- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0    | **Resolve applicable Profile/StructureDefinition** | Hard dependency — prerequisite for everything else.                                                                                                                                                       |
-| 1    | **Structure**                                      | Hard dependency on step 0.                                                                                                                                                                                |
-| 2    | **Cardinality**                                    | Hard dependency on step 0. Runs before Value Domains as an optimization (cheaper, fails fast).                                                                                                            |
-| 3    | **Value Domains**                                  | Hard dependency on step 0. Logically independent from Cardinality.                                                                                                                                        |
+| Step | Aspect                                             | Ordering reason                                                                                                                                                                                             |
+| ---- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0    | **Resolve applicable Profile/StructureDefinition** | Hard dependency — prerequisite for everything else.                                                                                                                                                        |
+| 1    | **Structure**                                      | Hard dependency on step 0.                                                                                                                                                                                  |
+| 2    | **Cardinality**                                    | Hard dependency on step 0. Runs before Value Domains as an optimization (cheaper, fails fast).                                                                                                             |
+| 3    | **Value Domains**                                  | Hard dependency on step 0. Logically independent from Cardinality.                                                                                                                                         |
 | 4    | **Invariants**                                     | Hard dependency on step 3. Runs before Bindings as an optimization: FHIRPath evaluation is local computation, while Bindings may require expanding a ValueSet or querying an external terminology server. |
 | 5    | **Bindings** (Coding/CodeableConcept)              | Hard dependency on step 3. Logically independent from Invariants — ordering vs. step 4 is a cost-based optimization, not a correctness requirement.                                                       |
 
@@ -127,3 +149,19 @@ Deferred to later phases (not part of the core pipeline above):
 - **Questionnaires**: separate sub-validator, out of scope for v1.
 - **Business Rules** (including reference resolution): optional layer, see
   Scope decisions above.
+
+## Known challenges
+
+- **Element/Extension mutual recursion**: `Element.extension` is of type
+  `Extension`, and `Extension` itself extends `Element` (it also has an
+  `.extension` field). This is structural self-reference by design in the
+  base FHIR model — almost every element carries an `extension` field.
+  Since fhemas resolves schemas by looking them up by URL against finite
+  input data (rather than generating compiled code ahead of time), this
+  should not cause the build-time infinite recursion that code-generation
+  approaches need to work around (e.g. via memoized lazy references). Still,
+  this needs to be handled explicitly in the resolution/lookup mechanism —
+  either through reference-by-lookup (not reconstruction) at each recursion
+  level, or an explicit depth guard — to avoid stack overflows on deeply
+  nested extensions. Not yet designed; noted here so it isn't missed when
+  implementing profile/type resolution.
