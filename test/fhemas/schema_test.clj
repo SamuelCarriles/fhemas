@@ -68,33 +68,33 @@
                  {:path [:min]
                   :min 1
                   :max 2
-                  :compile/field :fhemas.compile.r4/min-cardinality})))
+                  :compile/field 'fhemas.compile.r4/min-cardinality})))
   (testing "valid when min == max"
     (is (passes? schema/Field
                  {:path [:x]
                   :min 1
                   :max 1
-                  :compile/field :fhemas.compile.r4/path})))
+                  :compile/field 'fhemas.compile.r4/path})))
   (testing "invalid when min > max"
     (is (fails? schema/Field
                 {:path [:x]
                  :min 5
                  :max 1
-                 :compile/field :fhemas.compile.r4/path})))
+                 :compile/field 'fhemas.compile.r4/path})))
   (testing "valid when only min is present"
     (is (passes? schema/Field
                  {:path [:x]
                   :min 1
-                  :compile/field :fhemas.compile.r4/path})))
+                  :compile/field 'fhemas.compile.r4/path})))
   (testing "valid when only max is present"
     (is (passes? schema/Field
                  {:path [:x]
                   :max 1
-                  :compile/field :fhemas.compile.r4/path})))
+                  :compile/field 'fhemas.compile.r4/path})))
   (testing "valid when neither min nor max is present"
     (is (passes? schema/Field
                  {:path [:x]
-                  :compile/field :fhemas.compile.r4/path}))))
+                  :compile/field 'fhemas.compile.r4/path}))))
 
 (deftest field-compile-exclusivity-test
   (testing "valid with neither compile/field nor compile/with-group (purely declarative field)"
@@ -102,16 +102,16 @@
   (testing "valid with only compile/field"
     (is (passes? schema/Field
                  {:path [:path]
-                  :compile/field :fhemas.compile.r4/path})))
+                  :compile/field 'fhemas.compile.r4/path})))
   (testing "valid with only compile/with-group"
     (is (passes? schema/Field
                  {:path [:slicing]
-                  :compile/with-group :fhemas.compile.r4/slicing})))
+                  :compile/with-group 'fhemas.compile.r4/slicing})))
   (testing "invalid with both compile/field and compile/with-group"
     (is (fails? schema/Field
                 {:path [:x]
-                 :compile/field :fhemas.compile.r4/path
-                 :compile/with-group :fhemas.compile.r4/slicing}))))
+                 :compile/field 'fhemas.compile.r4/path
+                 :compile/with-group 'fhemas.compile.r4/slicing}))))
 
 (deftest field-path-test
   (testing "valid with vector-of-keyword path"
@@ -119,7 +119,7 @@
   (testing "valid with regex-style path (re-str map)"
     (is (passes? schema/Field {:path {:re-str "^fixed-.*$"}})))
   (testing "invalid with missing path"
-    (is (fails? schema/Field {:compile/field :fhemas.compile.r4/path})))
+    (is (fails? schema/Field {:compile/field 'fhemas.compile.r4/path})))
   (testing "invalid with path as a plain string"
     (is (fails? schema/Field {:path "not-a-valid-path-shape"}))))
 
@@ -132,7 +132,7 @@
     (is (passes? schema/Elements
                  {:base-definition {:path [:base-definition]}
                   :snapshot {:path [:snapshot :element]
-                             :compile/field :fhemas.compile.r4/snapshot}
+                             :compile/field 'fhemas.compile.r4/snapshot}
                   :fields []})))
   (testing "valid with only differential"
     (is (passes? schema/Elements
@@ -143,7 +143,7 @@
     (is (passes? schema/Elements
                  {:base-definition {:path [:base-definition]}
                   :snapshot {:path [:snapshot :element]
-                             :compile/field :fhemas.compile.r4/snapshot}
+                             :compile/field 'fhemas.compile.r4/snapshot}
                   :differential {:path [:differential :element]}
                   :fields []})))
   (testing "invalid with neither snapshot nor differential"
@@ -155,13 +155,13 @@
   (testing "invalid without base-definition"
     (is (fails? schema/Elements
                 {:snapshot {:path [:snapshot :element]
-                            :compile/field :fhemas.compile.r4/snapshot}
+                            :compile/field 'fhemas.compile.r4/snapshot}
                  :fields []})))
   (testing "valid with base-definition present"
     (is (passes? schema/Elements
                  {:base-definition {:path [:base-definition]}
                   :snapshot {:path [:snapshot :element]
-                             :compile/field :fhemas.compile.r4/snapshot}
+                             :compile/field 'fhemas.compile.r4/snapshot}
                   :fields []}))))
 
 ;; ---------------------------------------------------------------------------
@@ -184,61 +184,61 @@
     :meta [{:path [:fhir-version]
             :type :string
             :max 1
-            :compile/field :fhemas.compile.r4/structure-definition-fhir-version}
+            :compile/field 'fhemas.compile.r4/structure-definition-fhir-version}
            {:path [:status]
             :type :string
             :min 1
             :max 1
-            :compile/field :fhemas.compile.r4/structure-definition-status}
+            :compile/field 'fhemas.compile.r4/structure-definition-status}
            {:path [:experimental]
             :type :boolean
             :max 1
-            :compile/field :fhemas.compile.r4/structure-definition-experimental}]
+            :compile/field 'fhemas.compile.r4/structure-definition-experimental}]
     :invariants [{:path [:context-invariant]
                   :type :vector
-                  :compile/field :fhemas.compile.r4/fhirpath-constraints}]
+                  :compile/field 'fhemas.compile.r4/fhirpath-constraints}]
     :elements
     {:base-definition {:path [:base-definition]}
      :snapshot {:path [:snapshot :element]
-                :compile/field :fhemas.compile.r4/snapshot}
+                :compile/field 'fhemas.compile.r4/snapshot}
      :differential {:path [:differential :element]}
      :fields
      [{:path [:path] :type :string :min 1 :max 1
-       :compile/field :fhemas.compile.r4/path}
+       :compile/field 'fhemas.compile.r4/path}
       {:path [:id] :type :string :max 1
-       :compile/field :fhemas.compile.r4/id}
+       :compile/field 'fhemas.compile.r4/id}
       {:path [:slice-name] :type :string :max 1}
       {:path [:slice-is-constraining] :type :boolean :max 1}
       {:path [:min] :type :integer :max 1
-       :compile/field :fhemas.compile.r4/min-cardinality}
+       :compile/field 'fhemas.compile.r4/min-cardinality}
       {:path [:max] :type :string :max 1
-       :compile/field :fhemas.compile.r4/max-cardinality}
+       :compile/field 'fhemas.compile.r4/max-cardinality}
       {:path [:slicing] :type :map :max 1
-       :compile/with-group :fhemas.compile.r4/slicing}
+       :compile/with-group 'fhemas.compile.r4/slicing}
       {:path [:type] :type :vector
-       :compile/field :fhemas.compile.r4/type}
+       :compile/field 'fhemas.compile.r4/type}
       {:path [:content-reference] :type :uri :max 1
-       :compile/with-group :fhemas.compile.r4/content-reference}
+       :compile/with-group 'fhemas.compile.r4/content-reference}
       {:path {:re-str "^fixed-.*$"}
        :type [:string :integer :boolean :map :vector :uri]
-       :max 1 :compile/field :fhemas.compile.r4/fixed-value}
+       :max 1 :compile/field 'fhemas.compile.r4/fixed-value}
       {:path {:re-str "^pattern-.*$"}
        :type [:string :integer :boolean :map :vector :uri]
-       :max 1 :compile/field :fhemas.compile.r4/pattern-value}
+       :max 1 :compile/field 'fhemas.compile.r4/pattern-value}
       {:path {:re-str "^min-value-.*$"}
        :type [:integer :string :map]
-       :max 1 :compile/field :fhemas.compile.r4/min-value}
+       :max 1 :compile/field 'fhemas.compile.r4/min-value}
       {:path {:re-str "^max-value-.*$"}
        :type [:integer :string :map]
-       :max 1 :compile/field :fhemas.compile.r4/max-value}
+       :max 1 :compile/field 'fhemas.compile.r4/max-value}
       {:path [:max-length] :type :integer :max 1
-       :compile/field :fhemas.compile.r4/max-length}
+       :compile/field 'fhemas.compile.r4/max-length}
       {:path [:constraint] :type :vector
-       :compile/field :fhemas.compile.r4/fhirpath-constraints}
+       :compile/field 'fhemas.compile.r4/fhirpath-constraints}
       {:path [:condition] :type :vector
-       :compile/field :fhemas.compile.r4/condition}
+       :compile/field 'fhemas.compile.r4/condition}
       {:path [:binding] :type :map :max 1
-       :compile/field :fhemas.compile.r4/binding}]}}})
+       :compile/field 'fhemas.compile.r4/binding}]}}})
 
 (deftest validator-definition-happy-path-test
   (testing "the real R4 ValidatorDefinition document validates cleanly"
@@ -310,7 +310,7 @@
         (is (= "Invalid ValidatorDefinition" (ex-message e)))
         (let [data (ex-data e)]
           (is (= :invalid/schema (:code data)))
-          (is (= :fhemas.schema (:scope data)))
+          (is (= 'fhemas.schema/validate-schema (:location data)))
           (is (= :validate-schema (:operation data)))
           (is (some? (:details data))))))))
 

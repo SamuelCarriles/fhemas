@@ -16,7 +16,6 @@
     (boolean (jio/as-url s))
     (catch Exception _ false)))
 
-
 (def registry
   (mr/composite-registry
    (m/default-schemas)
@@ -43,8 +42,8 @@
     [:type {:optional true} [:or :keyword [:vector :keyword]]]
     [:min {:optional true} [:int {:min 1}]]
     [:max {:optional true} [:int {:min 1}]]
-    [:compile/field {:optional true} :qualified-keyword]
-    [:compile/with-group {:optional true} :qualified-keyword]]])
+    [:compile/field {:optional true} :qualified-symbol]
+    [:compile/with-group {:optional true} :qualified-symbol]]])
 
 (def Elements
   [:and
@@ -81,7 +80,7 @@
   (if-let [explain (m/explain schema x {:registry registry})]
     (throw (error/info :invalid/schema
                        {:message error-msg
-                        :scope :fhemas.schema
+                        :location 'fhemas.schema/validate-schema
                         :operation :validate-schema
                         :details (me/humanize explain)}))
     x))
