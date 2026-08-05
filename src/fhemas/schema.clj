@@ -13,8 +13,9 @@
 
 (defn url? [s]
   (try
-    (jio/as-url s)
+    (boolean (jio/as-url s))
     (catch Exception _ false)))
+
 
 (def registry
   (mr/composite-registry
@@ -23,47 +24,56 @@
     ::url [:fn {:error/message "must be a valid URL"} url?]}))
 
 (def Field
-  [:map
-   [:path [:or
-           [:vector :keyword]
-           [:map
-            [:re-str ::not-blank-str]]]]
-   [:type {:optional true} [:or :keyword [:vector :keyword]]]
-   [:min {:optional true} [:int {:min 1}]]
-   [:max {:optional true} [:int {:min 1}]]
-   [:compile/field {:optional true} :qualified-keyword]
-   [:compile/with-group {:optional true} :qualified-keyword]])
+  [:and
+   [:fn {:error/message "min most be lower or equal than max"}
+    (fn [{:keys [min max]}]
+      (if (and (some? min)
+               (some? max))
+        (>= max min)
+        true))]
+   [:fn {:error/message "you most provide either compile/field or compile/with-group"}
+    (fn [{:compile/keys [field with-group]}]
+      (not (and field with-group)))]
+
+   [:map
+    [:path [:or
+            [:vector :keyword]
+            [:map
+             [:re-str ::not-blank-str]]]]
+    [:type {:optional true} [:or :keyword [:vector :keyword]]]
+    [:min {:optional true} [:int {:min 1}]]
+    [:max {:optional true} [:int {:min 1}]]
+    [:compile/field {:optional true} :qualified-keyword]
+    [:compile/with-group {:optional true} :qualified-keyword]]])
 
 (def Elements
   [:and
-   [:fn {:error/message "must provide either: snapshot or differential"}
+   [:fn {:error/message "must provide snapshot, differential, or both"}
     (fn [{:keys [snapshot differential]}]
       (or snapshot differential))]
 
    [:map
-    [:snapshot {:optional true}
-     [:map
-      [:path [:vector :keyword]]]]
-    [:differential {:optional true}
-     [:map
-      [:path [:vector :keyword]]]]
+    [:base-definition Field]
+    [:snapshot {:optional true} Field]
+    [:differential {:optional true} Field]
     [:fields [:vector Field]]]])
 
-(def SchemaProfile
+(def ValidatorDefinition
   [:map
-   [:resource-type [:= "SchemaProfile"]]
+   [:resource-type [:= "ValidatorDefinition"]]
    [:id {:optional true} ::not-blank-str]
    [:url ::url]
    [:version ::not-blank-str]
    [:title {:optional true} ::not-blank-str]
-   [:status [:enum :active :draft :retired :unknown]]
+   [:status [:enum :active :draft :unknown :retired]]
    [:description {:optional true} ::not-blank-str]
    [:fhir-version ::not-blank-str]
-   [:source ::url]
    [:schema
     [:map
+     [:source {:optional true} ::url]
+     [:identifier Field]
+
      [:meta [:vector Field]]
-     [:definition [:vector Field]]
      [:invariants [:vector Field]]
      [:elements Elements]]]])
 
@@ -76,6 +86,6 @@
                         :details (me/humanize explain)}))
     x))
 
-(defn validate-schema-profile [m]
-  (validate-schema SchemaProfile m "Invalid SchemaProfile"))
+(defn validate-validator-definition [m]
+  (validate-schema ValidatorDefinition m "Invalid ValidatorDefinition"))
 

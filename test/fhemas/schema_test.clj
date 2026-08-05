@@ -1,112 +1,319 @@
 (ns fhemas.schema-test
-  (:require [clojure.test :refer [deftest is testing]]
-            [fhemas.schema :as schema]))
+  (:require
+   [clojure.test :refer [deftest testing is]]
+   [fhemas.schema :as schema]))
 
-(def valid-schema-profile
-  {:resource-type "SchemaProfile"
-   :id "fhir-r4-schema-profile"
-   :url "https://example.com/fhemas/R4/schema-profile.edn"
+;; ---------------------------------------------------------------------------
+;; not-blank-str?
+;; ---------------------------------------------------------------------------
+
+(deftest not-blank-str?-test
+  (testing "accepts non-blank strings"
+    (is (true? (schema/not-blank-str? "hello"))))
+  (testing "rejects blank string"
+    (is (false? (schema/not-blank-str? ""))))
+  (testing "rejects whitespace-only string"
+    (is (false? (schema/not-blank-str? "   "))))
+  (testing "rejects nil"
+    (is (false? (schema/not-blank-str? nil))))
+  (testing "rejects non-string values"
+    (is (false? (schema/not-blank-str? 42)))
+    (is (false? (schema/not-blank-str? :keyword)))))
+
+;; ---------------------------------------------------------------------------
+;; url?
+;; ---------------------------------------------------------------------------
+
+(deftest url?-test
+  (testing "accepts a valid http url"
+    (is (true? (schema/url? "http://hl7.org/fhir/StructureDefinition/StructureDefinition"))))
+  (testing "accepts a valid https url"
+    (is (true? (schema/url? "https://raw.githubusercontent.com/SamuelCarriles/artifacts/main/fhemas/ValidatorDefinitions/R4/validator-definition.edn"))))
+  (testing "rejects a malformed url (no protocol)"
+    (is (false? (schema/url? "not-a-url"))))
+  (testing "rejects an empty string"
+    (is (false? (schema/url? ""))))
+  (testing "rejects nil (as-url throws on nil, should be caught)"
+    (is (false? (schema/url? nil)))))
+
+;; ---------------------------------------------------------------------------
+;; Helpers
+;; ---------------------------------------------------------------------------
+
+(defn passes? [schema x]
+  (try
+    (schema/validate-schema schema x "test failure")
+    true
+    (catch Exception _ false)))
+
+(defn fails? [schema x]
+  (not (passes? schema x)))
+
+(defn vd-passes? [m]
+  (try
+    (schema/validate-validator-definition m)
+    true
+    (catch Exception _ false)))
+
+(defn vd-fails? [m]
+  (not (vd-passes? m)))
+
+;; ---------------------------------------------------------------------------
+;; Field schema
+;; ---------------------------------------------------------------------------
+
+(deftest field-min-max-test
+  (testing "valid when min <= max"
+    (is (passes? schema/Field
+                 {:path [:min]
+                  :min 1
+                  :max 2
+                  :compile/field :fhemas.compile.r4/min-cardinality})))
+  (testing "valid when min == max"
+    (is (passes? schema/Field
+                 {:path [:x]
+                  :min 1
+                  :max 1
+                  :compile/field :fhemas.compile.r4/path})))
+  (testing "invalid when min > max"
+    (is (fails? schema/Field
+                {:path [:x]
+                 :min 5
+                 :max 1
+                 :compile/field :fhemas.compile.r4/path})))
+  (testing "valid when only min is present"
+    (is (passes? schema/Field
+                 {:path [:x]
+                  :min 1
+                  :compile/field :fhemas.compile.r4/path})))
+  (testing "valid when only max is present"
+    (is (passes? schema/Field
+                 {:path [:x]
+                  :max 1
+                  :compile/field :fhemas.compile.r4/path})))
+  (testing "valid when neither min nor max is present"
+    (is (passes? schema/Field
+                 {:path [:x]
+                  :compile/field :fhemas.compile.r4/path}))))
+
+(deftest field-compile-exclusivity-test
+  (testing "valid with neither compile/field nor compile/with-group (purely declarative field)"
+    (is (passes? schema/Field {:path [:base-definition]})))
+  (testing "valid with only compile/field"
+    (is (passes? schema/Field
+                 {:path [:path]
+                  :compile/field :fhemas.compile.r4/path})))
+  (testing "valid with only compile/with-group"
+    (is (passes? schema/Field
+                 {:path [:slicing]
+                  :compile/with-group :fhemas.compile.r4/slicing})))
+  (testing "invalid with both compile/field and compile/with-group"
+    (is (fails? schema/Field
+                {:path [:x]
+                 :compile/field :fhemas.compile.r4/path
+                 :compile/with-group :fhemas.compile.r4/slicing}))))
+
+(deftest field-path-test
+  (testing "valid with vector-of-keyword path"
+    (is (passes? schema/Field {:path [:snapshot :element]})))
+  (testing "valid with regex-style path (re-str map)"
+    (is (passes? schema/Field {:path {:re-str "^fixed-.*$"}})))
+  (testing "invalid with missing path"
+    (is (fails? schema/Field {:compile/field :fhemas.compile.r4/path})))
+  (testing "invalid with path as a plain string"
+    (is (fails? schema/Field {:path "not-a-valid-path-shape"}))))
+
+;; ---------------------------------------------------------------------------
+;; Elements schema
+;; ---------------------------------------------------------------------------
+
+(deftest elements-snapshot-or-differential-test
+  (testing "valid with only snapshot"
+    (is (passes? schema/Elements
+                 {:base-definition {:path [:base-definition]}
+                  :snapshot {:path [:snapshot :element]
+                             :compile/field :fhemas.compile.r4/snapshot}
+                  :fields []})))
+  (testing "valid with only differential"
+    (is (passes? schema/Elements
+                 {:base-definition {:path [:base-definition]}
+                  :differential {:path [:differential :element]}
+                  :fields []})))
+  (testing "valid with both snapshot and differential"
+    (is (passes? schema/Elements
+                 {:base-definition {:path [:base-definition]}
+                  :snapshot {:path [:snapshot :element]
+                             :compile/field :fhemas.compile.r4/snapshot}
+                  :differential {:path [:differential :element]}
+                  :fields []})))
+  (testing "invalid with neither snapshot nor differential"
+    (is (fails? schema/Elements
+                {:base-definition {:path [:base-definition]}
+                 :fields []}))))
+
+(deftest elements-base-definition-required-test
+  (testing "invalid without base-definition"
+    (is (fails? schema/Elements
+                {:snapshot {:path [:snapshot :element]
+                            :compile/field :fhemas.compile.r4/snapshot}
+                 :fields []})))
+  (testing "valid with base-definition present"
+    (is (passes? schema/Elements
+                 {:base-definition {:path [:base-definition]}
+                  :snapshot {:path [:snapshot :element]
+                             :compile/field :fhemas.compile.r4/snapshot}
+                  :fields []}))))
+
+;; ---------------------------------------------------------------------------
+;; Full ValidatorDefinition
+;; ---------------------------------------------------------------------------
+
+(def sample-vd
+  {:resource-type "ValidatorDefinition"
+   :id "fhir-4.0.1-validator-definition"
+   :url "https://raw.githubusercontent.com/SamuelCarriles/artifacts/main/fhemas/ValidatorDefinitions/R4/validator-definition.edn"
    :version "1.0.0"
-   :title "FHIR R4 Schema Profile"
+   :title "FHIR R4 Validator Definition"
    :status :active
-   :description "Defines how to parse and compile FHIR R4 StructureDefinitions"
+   :description "Defines how to parse, compose and build the correct pipeline to validate FHIR R4 resources basen on official package."
    :fhir-version "4.0.1"
-   :source "https://hl7.org/fhir/R4/structuredefinition.html"
    :schema
-   {:meta [{:path [:id] :type :string :max 1}]
-    :definition [{:path [:kind] :type :string :min 1 :max 1}]
+   {:source "https://hl7.org/fhir/R4/structuredefinition.html"
+    :identifier {:path [:url]}
+    :base "http://hl7.org/fhir/StructureDefinition/StructureDefinition"
+    :meta [{:path [:fhir-version]
+            :type :string
+            :max 1
+            :compile/field :fhemas.compile.r4/structure-definition-fhir-version}
+           {:path [:status]
+            :type :string
+            :min 1
+            :max 1
+            :compile/field :fhemas.compile.r4/structure-definition-status}
+           {:path [:experimental]
+            :type :boolean
+            :max 1
+            :compile/field :fhemas.compile.r4/structure-definition-experimental}]
     :invariants [{:path [:context-invariant]
                   :type :vector
-                  :compile/field :fhemas.compile.r4/fhirpath-constraint}]
+                  :compile/field :fhemas.compile.r4/fhirpath-constraints}]
     :elements
-    {:snapshot {:path [:snapshot :element]}
+    {:base-definition {:path [:base-definition]}
+     :snapshot {:path [:snapshot :element]
+                :compile/field :fhemas.compile.r4/snapshot}
+     :differential {:path [:differential :element]}
      :fields
-     [{:path [:path] :type :string :min 1 :max 1 :compile/field :fhemas.compile.r4/path}
-      {:path [:id] :type :string :max 1 :compile/field :fhemas.compile.r4/id}
-      {:path [:slice-name] :type :string :max 1} ;; Pass-through
-      {:path [:min] :type :integer :max 1 :compile/field :fhemas.compile.r4/min-cardinality}
-      {:path [:max] :type :string :max 1 :compile/field :fhemas.compile.r4/max-cardinality}
-      {:path [:slicing]
-       :type :map :max 1
+     [{:path [:path] :type :string :min 1 :max 1
+       :compile/field :fhemas.compile.r4/path}
+      {:path [:id] :type :string :max 1
+       :compile/field :fhemas.compile.r4/id}
+      {:path [:slice-name] :type :string :max 1}
+      {:path [:slice-is-constraining] :type :boolean :max 1}
+      {:path [:min] :type :integer :max 1
+       :compile/field :fhemas.compile.r4/min-cardinality}
+      {:path [:max] :type :string :max 1
+       :compile/field :fhemas.compile.r4/max-cardinality}
+      {:path [:slicing] :type :map :max 1
        :compile/with-group :fhemas.compile.r4/slicing}
-      {:path [:constraint]
-       :type :vector
-       :compile/field :fhemas.compile.r4/fhirpath-constraint}]}}})
+      {:path [:type] :type :vector
+       :compile/field :fhemas.compile.r4/type}
+      {:path [:content-reference] :type :uri :max 1
+       :compile/with-group :fhemas.compile.r4/content-reference}
+      {:path {:re-str "^fixed-.*$"}
+       :type [:string :integer :boolean :map :vector :uri]
+       :max 1 :compile/field :fhemas.compile.r4/fixed-value}
+      {:path {:re-str "^pattern-.*$"}
+       :type [:string :integer :boolean :map :vector :uri]
+       :max 1 :compile/field :fhemas.compile.r4/pattern-value}
+      {:path {:re-str "^min-value-.*$"}
+       :type [:integer :string :map]
+       :max 1 :compile/field :fhemas.compile.r4/min-value}
+      {:path {:re-str "^max-value-.*$"}
+       :type [:integer :string :map]
+       :max 1 :compile/field :fhemas.compile.r4/max-value}
+      {:path [:max-length] :type :integer :max 1
+       :compile/field :fhemas.compile.r4/max-length}
+      {:path [:constraint] :type :vector
+       :compile/field :fhemas.compile.r4/fhirpath-constraints}
+      {:path [:condition] :type :vector
+       :compile/field :fhemas.compile.r4/condition}
+      {:path [:binding] :type :map :max 1
+       :compile/field :fhemas.compile.r4/binding}]}}})
 
-(deftest validate-schema-profile-test
-  (testing "Valid SchemaProfile with new compile keys"
-    (is (= valid-schema-profile
-           (schema/validate-schema-profile valid-schema-profile))
-        "Should return the map intact if valid"))
+(deftest validator-definition-happy-path-test
+  (testing "the real R4 ValidatorDefinition document validates cleanly"
+    (is (vd-passes? sample-vd))))
 
-  (testing "Elements with only differential (no snapshot)"
-    (let [differential-only (assoc-in valid-schema-profile
-                                      [:schema :elements]
-                                      {:differential {:path [:differential :element]}
-                                       :fields [{:path [:path] :type :string :min 1 :max 1}]})]
-      (is (map? (schema/validate-schema-profile differential-only))
-          "Should be valid if only differential is provided")))
+(deftest validate-validator-definition-happy-path-test
+  (testing "returns the input unchanged when valid"
+    (is (= sample-vd (schema/validate-validator-definition sample-vd)))))
 
-  (testing "Elements missing both snapshot and differential"
-    (let [invalid-data (assoc-in valid-schema-profile
-                                 [:schema :elements]
-                                 {:fields [{:path [:path] :type :string}]})]
-      (is (thrown-with-msg?
-           clojure.lang.ExceptionInfo
-           #"Invalid SchemaProfile"
-           (schema/validate-schema-profile invalid-data)))))
+;; ---------------------------------------------------------------------------
+;; Full ValidatorDefinition — required top-level fields
+;; ---------------------------------------------------------------------------
 
-  (testing ":compile/field is not a qualified keyword"
-    (let [invalid-data (assoc-in valid-schema-profile
-                                 [:schema :elements :fields 0 :compile/field]
-                                 :unqualified-keyword)] ;; Falta el namespace
-      (is (thrown-with-msg?
-           clojure.lang.ExceptionInfo
-           #"Invalid SchemaProfile"
-           (schema/validate-schema-profile invalid-data)))))
+(deftest validator-definition-required-fields-test
+  (testing "missing :resource-type is invalid"
+    (is (vd-fails? (dissoc sample-vd :resource-type))))
+  (testing "wrong :resource-type value is invalid"
+    (is (vd-fails? (assoc sample-vd :resource-type "StructureDefinition"))))
+  (testing "missing :url is invalid"
+    (is (vd-fails? (dissoc sample-vd :url))))
+  (testing "invalid :url value is invalid"
+    (is (vd-fails? (assoc sample-vd :url "not-a-url"))))
+  (testing "missing :version is invalid"
+    (is (vd-fails? (dissoc sample-vd :version))))
+  (testing "missing :status is invalid"
+    (is (vd-fails? (dissoc sample-vd :status))))
+  (testing "invalid :status enum value is invalid"
+    (is (vd-fails? (assoc sample-vd :status :bogus))))
+  (testing "each valid :status enum value passes"
+    (doseq [status [:active :draft :unknown :retired]]
+      (is (vd-passes? (assoc sample-vd :status status)))))
+  (testing "missing :fhir-version is invalid"
+    (is (vd-fails? (dissoc sample-vd :fhir-version))))
+  (testing ":id is optional"
+    (is (vd-passes? (dissoc sample-vd :id))))
+  (testing ":title is optional"
+    (is (vd-passes? (dissoc sample-vd :title))))
+  (testing ":description is optional"
+    (is (vd-passes? (dissoc sample-vd :description)))))
 
-  (testing ":compile/with-group is a string instead of keyword"
-    (let [invalid-data (assoc-in valid-schema-profile
-                                 [:schema :elements :fields 5 :compile/with-group]
-                                 "fhemas.compile.r4/slicing")]
-      (is (thrown-with-msg?
-           clojure.lang.ExceptionInfo
-           #"Invalid SchemaProfile"
-           (schema/validate-schema-profile invalid-data)))))
+(deftest validator-definition-schema-required-fields-test
+  (testing "missing :schema :identifier is invalid"
+    (is (vd-fails? (update sample-vd :schema dissoc :identifier))))
+  (testing "missing :schema :meta is invalid"
+    (is (vd-fails? (update sample-vd :schema dissoc :meta))))
+  (testing "missing :schema :invariants is invalid"
+    (is (vd-fails? (update sample-vd :schema dissoc :invariants))))
+  (testing "missing :schema :elements is invalid"
+    (is (vd-fails? (update sample-vd :schema dissoc :elements))))
+  (testing ":schema :source is optional"
+    (is (vd-passes? (update sample-vd :schema dissoc :source))))
+  (testing "invalid :schema :source url is invalid"
+    (is (vd-fails? (assoc-in sample-vd [:schema :source] "not-a-url")))))
 
-  (testing ":min is 0 (violates {:min 1} rule per omission convention)"
-    (let [invalid-data (assoc-in valid-schema-profile
-                                 [:schema :elements :fields 3 :min]
-                                 0)]
-      (is (thrown-with-msg?
-           clojure.lang.ExceptionInfo
-           #"Invalid SchemaProfile"
-           (schema/validate-schema-profile invalid-data))
-          ":min must be >= 1 if present")))
+;; ---------------------------------------------------------------------------
+;; validate-schema / validate-validator-definition error behavior
+;; ---------------------------------------------------------------------------
 
-  (testing ":max is 0 (violates {:min 1} rule per omission convention)"
-    (let [invalid-data (assoc-in valid-schema-profile
-                                 [:schema :elements :fields 4 :max]
-                                 0)]
-      (is (thrown-with-msg?
-           clojure.lang.ExceptionInfo
-           #"Invalid SchemaProfile"
-           (schema/validate-schema-profile invalid-data))
-          ":max must be >= 1 if present")))
+(deftest validate-schema-throws-on-invalid-test
+  (testing "throws when the document is invalid"
+    (is (thrown? Exception
+                 (schema/validate-validator-definition
+                  (dissoc sample-vd :resource-type)))))
+  (testing "the thrown error carries the given message, code, scope, operation and humanized details"
+    (try
+      (schema/validate-validator-definition (dissoc sample-vd :url))
+      (is false "expected an exception to be thrown")
+      (catch Exception e
+        (is (= "Invalid ValidatorDefinition" (ex-message e)))
+        (let [data (ex-data e)]
+          (is (= :invalid/schema (:code data)))
+          (is (= :fhemas.schema (:scope data)))
+          (is (= :validate-schema (:operation data)))
+          (is (some? (:details data))))))))
 
-  (testing "Missing required root field (:url)"
-    (let [invalid-data (dissoc valid-schema-profile :url)]
-      (is (thrown-with-msg?
-           clojure.lang.ExceptionInfo
-           #"Invalid SchemaProfile"
-           (schema/validate-schema-profile invalid-data)))))
-
-  (testing "Exception contains correct metadata (code, scope, operation)"
-    (let [invalid-data (assoc valid-schema-profile :status :invalid-status)
-          exception (try
-                      (schema/validate-schema-profile invalid-data)
-                      (catch Exception e e))]
-      (is (= :invalid/schema (:code (ex-data exception))))
-      (is (= :fhemas.schema (:scope (ex-data exception))))
-      (is (= :validate-schema (:operation (ex-data exception))))
-      (is (contains? (ex-data exception) :details)))))
+(deftest validate-schema-returns-input-on-valid-test
+  (testing "returns x unchanged, not the explain result"
+    (is (= sample-vd (schema/validate-schema schema/ValidatorDefinition sample-vd "should not throw")))))
