@@ -11,7 +11,7 @@ without depending on the Java FHIR ecosystem. Given the FHIR resources
 required for validation (the official FHIR package — StructureDefinitions,
 ValueSets, etc.), the engine validates any target resource against them.
 
-The library stays data-driven: a custom resource called **SchemaProfile**
+The library stays data-driven: a custom resource called **ValidatorDefinition**
 tells the engine exactly what to extract from a StructureDefinition and
 which functions to apply to process each field. The engine never guesses —
 all extraction and compilation behavior is explicit, external configuration,
@@ -23,7 +23,7 @@ fhemas is currently in early active development.
 See the [GitHub Projects board](https://github.com/users/SamuelCarriles/projects/7/views/1)
 for current progress and planned work.
 
-## Validation aspects (per the FHIR spec)
+## Validation aspects
 
 1. Structure
 2. Cardinality
@@ -67,53 +67,6 @@ every aspect explicitly; defaults can be overridden granularly.
 
 Exact default values and the full shape of this configuration are still
 being designed — see the roadmap.
-
-## How it works
-
-### SchemaProfile
-
-A SchemaProfile is a custom resource that fully describes how to process
-StructureDefinitions for a given FHIR version: which root fields matter
-(`:meta`), which ElementDefinition fields matter and how to compile them
-(`:schema :elements`), including cardinality, type, slicing, bindings, and
-FHIRPath constraints.
-
-The engine does not derive this knowledge on its own — SchemaProfiles are
-authored by hand and distributed as data. This also covers the special case
-of validating StructureDefinition itself (since a StructureDefinition that
-defines StructureDefinition/ElementDefinition is, structurally, just another
-StructureDefinition): the same SchemaProfile-driven process handles it,
-there is no separate bootstrap mechanism.
-
-### Two layers of validation
-
-1. **SchemaProfile validation (fixed, hand-written)**: every SchemaProfile
-   is itself validated against a static Malli schema before use. This is
-   not derived from any SchemaProfile — it's the one fixed piece of the
-   system. This is what lets the engine trust the SchemaProfile it's about
-   to use.
-
-2. **Target resource validation (SchemaProfile-driven)**: once a
-   SchemaProfile is validated, the engine uses it to extract and compile
-   fields from any StructureDefinition, and to run the validation pipeline
-   below against target resources.
-
-### Compilation functions (`:compile/field`)
-
-Fields in a SchemaProfile can declare a `:compile/field` (or
-`:compile/with-group`) pointing to a namespaced keyword (e.g.
-`:fhemas.compile.r4/inheritance`). The engine resolves this to an actual
-function via `resolve`.
-
-**Security note**: this means the engine executes whatever function the
-SchemaProfile points to. Only use SchemaProfiles from trusted sources — the
-official artifacts repo ([SamuelCarriles/artifacts](https://github.com/SamuelCarriles/artifacts))
-is the recommended source. Loading a SchemaProfile from an untrusted source
-means trusting arbitrary code resolution.
-
-**Practical requirement**: the namespace containing the compile functions
-(e.g. `fhemas.compile.r4`) must be `require`d in the consumer's runtime for
-`resolve` to find it. If it isn't required, resolution silently fails.
 
 ## Validation pipeline (build order)
 
