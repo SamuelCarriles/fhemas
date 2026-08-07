@@ -1,4 +1,4 @@
-(ns fhemas.validator-definition
+(ns fhemas.validator-definition.core
   (:require [clojure.walk :refer [postwalk]]
             [fhemas.error :as error]
             [fhemas.schema :as schema]))

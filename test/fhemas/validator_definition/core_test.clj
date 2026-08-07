@@ -1,7 +1,8 @@
-(ns fhemas.validator-definition-test
+(ns fhemas.validator-definition.core-test
   (:require
    [clojure.test :refer [deftest testing is]]
-   [fhemas.validator-definition :as validator-def]))
+   [clojure.string]
+   [fhemas.validator-definition.core :as validator-def]))
 
 ;; ---------------------------------------------------------------------------
 ;; resolve-compiler
@@ -39,10 +40,10 @@
           result (validator-def/coerce-compilers input)]
       (is (= #'clojure.core/identity (:compile/field result)))))
 
-  (testing "replaces a :compile/with-group symbol with its resolved var"
-    (let [input  {:compile/with-group 'clojure.core/identity}
+  (testing "replaces a :compile/group symbol with its resolved var"
+    (let [input  {:compile/group 'clojure.core/identity}
           result (validator-def/coerce-compilers input)]
-      (is (= #'clojure.core/identity (:compile/with-group result)))))
+      (is (= #'clojure.core/identity (:compile/group result)))))
 
   (testing "does not modify a map without :compile/* keys"
     (let [input  {:path [:some-path] :type :string}
@@ -56,12 +57,12 @@
 
   (testing "handles nested maps with :compile/* keys at multiple levels"
     (let [input  {:schema {:meta     [{:compile/field 'clojure.core/identity}]
-                           :elements {:fields [{:compile/with-group 'clojure.core/inc}]}}}
+                           :elements {:fields [{:compile/group 'clojure.core/inc}]}}}
           result (validator-def/coerce-compilers input)]
       (is (= #'clojure.core/identity
              (get-in result [:schema :meta 0 :compile/field])))
       (is (= #'clojure.core/inc
-             (get-in result [:schema :elements :fields 0 :compile/with-group]))))))
+             (get-in result [:schema :elements :fields 0 :compile/group]))))))
 
 (deftest coerce-compilers-nonexistent-test
   (testing "throws when a :compile/field symbol cannot be resolved"
@@ -89,6 +90,7 @@
    :fhir-version "4.0.1"
    :schema
    {:identifier {:path [:url]}
+    :base "http://example.base.com"
     :meta [{:path [:status]
             :type :string
             :min 1

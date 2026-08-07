@@ -24,26 +24,26 @@
 
 (def Field
   [:and
-   [:fn {:error/message "min most be lower or equal than max"}
+   [:fn {:error/message "min must be less than or equal to max"}
     (fn [{:keys [min max]}]
       (if (and (some? min)
                (some? max))
         (>= max min)
         true))]
-   [:fn {:error/message "you most provide either compile/field or compile/with-group"}
-    (fn [{:compile/keys [field with-group]}]
-      (not (and field with-group)))]
+   [:fn {:error/message "cannot provide both compile/field and compile/group"}
+    (fn [{:compile/keys [field group]}]
+      (not (and field group)))]
 
    [:map
     [:path [:or
             [:vector :keyword]
             [:map
              [:re-str ::not-blank-str]]]]
-    [:type {:optional true} [:or :keyword [:vector :keyword]]]
+    [:type {:optional true} :keyword]
     [:min {:optional true} [:int {:min 1}]]
     [:max {:optional true} [:int {:min 1}]]
     [:compile/field {:optional true} :qualified-symbol]
-    [:compile/with-group {:optional true} :qualified-symbol]]])
+    [:compile/group {:optional true} :qualified-symbol]]])
 
 (def Elements
   [:and
@@ -57,6 +57,15 @@
     [:differential {:optional true} Field]
     [:fields [:vector Field]]]])
 
+(def Schema
+  [:map
+   [:source {:optional true} ::url]
+   [:identifier Field]
+   [:base ::url]
+   [:meta [:vector Field]]
+   [:invariants [:vector Field]]
+   [:elements Elements]])
+
 (def ValidatorDefinition
   [:map
    [:resource-type [:= "ValidatorDefinition"]]
@@ -67,14 +76,7 @@
    [:status [:enum :active :draft :unknown :retired]]
    [:description {:optional true} ::not-blank-str]
    [:fhir-version ::not-blank-str]
-   [:schema
-    [:map
-     [:source {:optional true} ::url]
-     [:identifier Field]
-
-     [:meta [:vector Field]]
-     [:invariants [:vector Field]]
-     [:elements Elements]]]])
+   [:schema Schema]])
 
 (defn validate-schema [schema x error-msg]
   (if-let [explain (m/explain schema x {:registry registry})]

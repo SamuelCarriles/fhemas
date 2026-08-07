@@ -97,21 +97,21 @@
                   :compile/field 'fhemas.compile.r4/path}))))
 
 (deftest field-compile-exclusivity-test
-  (testing "valid with neither compile/field nor compile/with-group (purely declarative field)"
+  (testing "valid with neither compile/field nor compile/group (purely declarative field)"
     (is (passes? schema/Field {:path [:base-definition]})))
   (testing "valid with only compile/field"
     (is (passes? schema/Field
                  {:path [:path]
                   :compile/field 'fhemas.compile.r4/path})))
-  (testing "valid with only compile/with-group"
+  (testing "valid with only compile/group"
     (is (passes? schema/Field
                  {:path [:slicing]
-                  :compile/with-group 'fhemas.compile.r4/slicing})))
-  (testing "invalid with both compile/field and compile/with-group"
+                  :compile/group 'fhemas.compile.r4/slicing})))
+  (testing "invalid with both compile/field and compile/group"
     (is (fails? schema/Field
                 {:path [:x]
                  :compile/field 'fhemas.compile.r4/path
-                 :compile/with-group 'fhemas.compile.r4/slicing}))))
+                 :compile/group 'fhemas.compile.r4/slicing}))))
 
 (deftest field-path-test
   (testing "valid with vector-of-keyword path"
@@ -175,7 +175,7 @@
    :version "1.0.0"
    :title "FHIR R4 Validator Definition"
    :status :active
-   :description "Defines how to parse, compose and build the correct pipeline to validate FHIR R4 resources basen on official package."
+   :description "A validator definition that specifies how to parse, validate, and process FHIR R4 resources according to the official HL7 FHIR R4 specification. It defines the structure, constraints, and compilation rules needed to build validators for FHIR resources."
    :fhir-version "4.0.1"
    :schema
    {:source "https://hl7.org/fhir/R4/structuredefinition.html"
@@ -214,22 +214,18 @@
       {:path [:max] :type :string :max 1
        :compile/field 'fhemas.compile.r4/max-cardinality}
       {:path [:slicing] :type :map :max 1
-       :compile/with-group 'fhemas.compile.r4/slicing}
+       :compile/group 'fhemas.compile.r4/slicing}
       {:path [:type] :type :vector
        :compile/field 'fhemas.compile.r4/type}
       {:path [:content-reference] :type :uri :max 1
-       :compile/with-group 'fhemas.compile.r4/content-reference}
+       :compile/group 'fhemas.compile.r4/content-reference}
       {:path {:re-str "^fixed-.*$"}
-       :type [:string :integer :boolean :map :vector :uri]
        :max 1 :compile/field 'fhemas.compile.r4/fixed-value}
       {:path {:re-str "^pattern-.*$"}
-       :type [:string :integer :boolean :map :vector :uri]
        :max 1 :compile/field 'fhemas.compile.r4/pattern-value}
       {:path {:re-str "^min-value-.*$"}
-       :type [:integer :string :map]
        :max 1 :compile/field 'fhemas.compile.r4/min-value}
       {:path {:re-str "^max-value-.*$"}
-       :type [:integer :string :map]
        :max 1 :compile/field 'fhemas.compile.r4/max-value}
       {:path [:max-length] :type :integer :max 1
        :compile/field 'fhemas.compile.r4/max-length}

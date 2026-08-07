@@ -16,3 +16,21 @@
                     :operation operation
                     :details {:compiler value
                               :expected "A valid compiler-fn symbol"}}))
+
+(defmethod info :invalid/cardinality
+  [code {:keys [message location operation req-cardinality value]}]
+  (ex-info message {:code code
+                    :location location
+                    :operation operation
+                    :details {:value value
+                              :cardinality {:current (count value)
+                                            :expected req-cardinality}}}))
+
+(defmethod info :invalid/type
+  [code {:keys [message location operation value expected]}]
+  (ex-info message {:code code
+                    :location location
+                    :operation operation
+                    :details {:value value
+                              :type {:current (type value)
+                                     :expected expected}}}))
