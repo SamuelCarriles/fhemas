@@ -89,8 +89,8 @@
   (testing "valid when only max is present"
     (is (passes? schema/Field
                  {:path [:x]
-                  :max 1
-                  :compile/field 'fhemas.compile.r4/path})))
+                 :max 1
+                 :compile/field 'fhemas.compile.r4/path})))
   (testing "valid when neither min nor max is present"
     (is (passes? schema/Field
                  {:path [:x]
@@ -165,6 +165,69 @@
                   :fields []}))))
 
 ;; ---------------------------------------------------------------------------
+;; Index schema
+;; ---------------------------------------------------------------------------
+
+(deftest index-required-fields-test
+  (testing "valid minimal index (only required fields)"
+    (is (passes? schema/Index
+                 {:name :idx/url->resource
+                  :key {:path [:url]}
+                  :relation :1->1})))
+  (testing "missing :name is invalid"
+    (is (fails? schema/Index
+                {:key {:path [:url]}
+                 :relation :1->1})))
+  (testing "missing :key is invalid"
+    (is (fails? schema/Index
+                {:name :idx/test
+                 :relation :1->1})))
+  (testing "missing :relation is invalid"
+    (is (fails? schema/Index
+                {:name :idx/test
+                 :key {:path [:url]}}))))
+
+(deftest index-optional-fields-test
+  (testing "valid with :value present"
+    (is (passes? schema/Index
+                 {:name :idx/name->url
+                  :key {:path [:name]}
+                  :value {:path [:url]}
+                  :relation :1->1})))
+  (testing "valid with :when present"
+    (is (passes? schema/Index
+                 {:name :idx/sd-name->url
+                  :when [{:resource-type "StructureDefinition"}]
+                  :key {:path [:name]}
+                  :value {:path [:url]}
+                  :relation :1->1})))
+  (testing "valid with all optional fields"
+    (is (passes? schema/Index
+                 {:name :idx/sd-kind->urls
+                  :when [{:resource-type "StructureDefinition"}]
+                  :key {:path [:kind]}
+                  :value {:path [:url]}
+                  :relation :1->*}))))
+
+(deftest index-key-and-value-are-fields-test
+  (testing ":key accepts regex path (inherits Field schema)"
+    (is (passes? schema/Index
+                 {:name :idx/test
+                  :key {:path {:re-str "^fixed-.*$"}}
+                  :relation :1->1})))
+  (testing ":value accepts regex path (inherits Field schema)"
+    (is (passes? schema/Index
+                 {:name :idx/test
+                  :key {:path [:url]}
+                  :value {:path {:re-str "^some-.*$"}}
+                  :relation :1->1})))
+  (testing ":key with invalid path shape is invalid"
+    (is (fails? schema/Index
+                {:name :idx/test
+                 :key {:path "not-valid"}
+                 :relation :1->1}))))
+
+;; ---------------------------------------------------------------------------
 ;; Full ValidatorDefinition
 ;; ---------------------------------------------------------------------------
 
@@ -177,9 +240,25 @@
    :status :active
    :description "A validator definition that specifies how to parse, validate, and process FHIR R4 resources according to the official HL7 FHIR R4 specification. It defines the structure, constraints, and compilation rules needed to build validators for FHIR resources."
    :fhir-version "4.0.1"
+   :indexes [{:name :idx/url->resource
+              :key {:path [:url]}
+              :relation :1->1}
+             {:name :idx/structure-definition.name->url
+              :when [{:resource-type "StructureDefinition"}]
+              :key {:path [:name]}
+              :value {:path [:url]}
+              :relation :1->1}
+             {:name :idx/structure-definition.kind->urls
+              :when [{:resource-type "StructureDefinition"}]
+              :key {:path [:kind]}
+              :value {:path [:url]}
+              :relation :1->*}
+             {:name :idx/resource-type->urls
+              :key {:path [:resource-type]}
+              :value {:path [:url]}
+              :relation :1->*}]
    :schema
    {:source "https://hl7.org/fhir/R4/structuredefinition.html"
-    :identifier {:path [:url]}
     :base "http://hl7.org/fhir/StructureDefinition/StructureDefinition"
     :meta [{:path [:fhir-version]
             :type :string
@@ -275,9 +354,35 @@
   (testing ":description is optional"
     (is (vd-passes? (dissoc sample-vd :description)))))
 
-(deftest validator-definition-schema-required-fields-test
-  (testing "missing :schema :identifier is invalid"
-    (is (vd-fails? (update sample-vd :schema dissoc :identifier))))
+;; ---------------------------------------------------------------------------
+;; ValidatorDefinition — indexes
+;; ---------------------------------------------------------------------------
+
+(deftest validator-definition-indexes-test
+  (testing "missing :indexes is invalid"
+    (is (vd-fails? (dissoc sample-vd :indexes))))
+  (testing "empty :indexes vector is invalid"
+    (is (vd-fails? (assoc sample-vd :indexes []))))
+  (testing "single valid index passes"
+    (is (vd-passes? (assoc sample-vd :indexes
+                           [{:name :idx/url->resource
+                             :key {:path [:url]}
+                             :relation :1->1}]))))
+  (testing "index with invalid :key fails"
+    (is (vd-fails? (assoc sample-vd :indexes
+                          [{:name :idx/test
+                            :key {:path "bad"}
+                            :relation :1->1}]))))
+  (testing "index missing :relation fails"
+    (is (vd-fails? (assoc sample-vd :indexes
+                          [{:name :idx/test
+                            :key {:path [:url]}}])))))
+
+;; ---------------------------------------------------------------------------
+;; ValidatorDefinition — schema required fields
+;; ---------------------------------------------------------------------------
+
+(deftest validator-definition-schema-required-fields-test 
   (testing "missing :schema :meta is invalid"
     (is (vd-fails? (update sample-vd :schema dissoc :meta))))
   (testing "missing :schema :invariants is invalid"

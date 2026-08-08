@@ -88,9 +88,11 @@
    :version "1.0.0"
    :status :active
    :fhir-version "4.0.1"
+   :indexes [{:name :idx/example
+              :key {:path [:url]}
+              :relation :1->1}]
    :schema
-   {:identifier {:path [:url]}
-    :base "http://example.base.com"
+   {:base "http://example.base.com"
     :meta [{:path [:status]
             :type :string
             :min 1

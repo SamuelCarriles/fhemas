@@ -5,7 +5,8 @@
    [malli.core :as m]
    [malli.registry :as mr]
    [malli.error :as me]
-   [fhemas.error :as error]))
+   [fhemas.error :as error]
+   [fhemas.validator-definition.field.validate :as validate]))
 
 (defn not-blank-str? [s]
   (and (string? s)
@@ -21,6 +22,14 @@
    (m/default-schemas)
    {::not-blank-str [:fn {:error/message "must be a non blank string"} not-blank-str?]
     ::url [:fn {:error/message "must be a valid URL"} url?]}))
+
+(defn field-supported-types
+  []
+  (-> validate/type
+      methods
+      (dissoc :default nil)
+      keys
+      vec))
 
 (def Field
   [:and
@@ -39,7 +48,7 @@
             [:vector :keyword]
             [:map
              [:re-str ::not-blank-str]]]]
-    [:type {:optional true} :keyword]
+    [:type {:optional true} (into [:enum] (field-supported-types))]
     [:min {:optional true} [:int {:min 1}]]
     [:max {:optional true} [:int {:min 1}]]
     [:compile/field {:optional true} :qualified-symbol]
@@ -60,11 +69,18 @@
 (def Schema
   [:map
    [:source {:optional true} ::url]
-   [:identifier Field]
    [:base ::url]
    [:meta [:vector Field]]
    [:invariants [:vector Field]]
    [:elements Elements]])
+
+(def Index
+  [:map
+   [:name :keyword]
+   [:when {:optional true} [:vector [:map-of :keyword :any]]]
+   [:key Field]
+   [:value {:optional true} Field]
+   [:relation :keyword]])
 
 (def ValidatorDefinition
   [:map
@@ -76,6 +92,7 @@
    [:status [:enum :active :draft :unknown :retired]]
    [:description {:optional true} ::not-blank-str]
    [:fhir-version ::not-blank-str]
+   [:indexes [:vector {:min 1} Index]]
    [:schema Schema]])
 
 (defn validate-schema [schema x error-msg]
