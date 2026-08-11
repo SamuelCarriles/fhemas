@@ -34,3 +34,10 @@
                     :details {:value value
                               :type {:current (type value)
                                      :expected expected}}}))
+
+(defmethod info :invalid/index
+  [code data]
+  (ex-info (:message data)
+           (-> data
+               (dissoc :message)
+               (assoc :code code))))

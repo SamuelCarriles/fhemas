@@ -6,7 +6,8 @@
    [malli.registry :as mr]
    [malli.error :as me]
    [fhemas.error :as error]
-   [fhemas.validator-definition.field.validate :as validate]))
+   [fhemas.validator-definition.field.validate :as validate]
+   [fhemas.index :as idx]))
 
 (defn not-blank-str? [s]
   (and (string? s)
@@ -23,8 +24,7 @@
    {::not-blank-str [:fn {:error/message "must be a non blank string"} not-blank-str?]
     ::url [:fn {:error/message "must be a valid URL"} url?]}))
 
-(defn field-supported-types
-  []
+(def field-supported-types
   (-> validate/type
       methods
       (dissoc :default nil)
@@ -48,7 +48,7 @@
             [:vector :keyword]
             [:map
              [:re-str ::not-blank-str]]]]
-    [:type {:optional true} (into [:enum] (field-supported-types))]
+    [:type {:optional true} (into [:enum] field-supported-types)]
     [:min {:optional true} [:int {:min 1}]]
     [:max {:optional true} [:int {:min 1}]]
     [:compile/field {:optional true} :qualified-symbol]
@@ -74,13 +74,19 @@
    [:invariants [:vector Field]]
    [:elements Elements]])
 
+(def supported-idx-relations
+  (-> idx/insert
+      methods
+      keys
+      vec))
+
 (def Index
   [:map
    [:name :keyword]
-   [:when {:optional true} [:vector [:map-of :keyword :any]]]
+   [:when {:optional true} [:vector {:min 1} [:map-of :keyword :any]]]
    [:key Field]
    [:value {:optional true} Field]
-   [:relation :keyword]])
+   [:relation (into [:enum] supported-idx-relations)]])
 
 (def ValidatorDefinition
   [:map
