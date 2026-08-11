@@ -119,14 +119,6 @@
       (is (= #'clojure.core/identity
              (get-in result [:schema :elements :snapshot :compile/field]))))))
 
-(deftest process-invalid-schema-test
-  (testing "throws when the VD is structurally invalid"
-    (try
-      (validator-def/process (dissoc test-vd :resource-type))
-      (is false "expected an exception")
-      (catch Exception e
-        (is (= :invalid/schema (:code (ex-data e))))))))
-
 (deftest process-nonexistent-compiler-test
   (testing "throws when a compiler symbol cannot be resolved"
     (let [bad-vd (assoc-in test-vd [:schema :meta 0 :compile/field]

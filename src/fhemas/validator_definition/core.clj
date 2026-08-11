@@ -1,7 +1,6 @@
 (ns fhemas.validator-definition.core
   (:require [clojure.walk :refer [postwalk]]
-            [fhemas.error :as error]
-            [fhemas.schema :as schema]))
+            [fhemas.error :as error]))
 
 (defn resolve-compiler
   "Resolves a qualified symbol to its compiler function.
@@ -31,11 +30,9 @@
    m))
 
 (defn process
-  "Validates a ValidatorDefinition against its schema and resolves
+  "Recieve a ValidatorDefinition schema and resolves
    all compiler symbols to their functions."
   [validator-def-map]
-  (-> validator-def-map
-      schema/validate-validator-definition
-      (update :schema coerce-compilers)))
+  (update validator-def-map :schema coerce-compilers))
 
 
