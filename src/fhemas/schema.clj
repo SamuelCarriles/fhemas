@@ -44,10 +44,10 @@
       (not (and field group)))]
 
    [:map
-    [:path [:or
-            [:vector :keyword]
-            [:map
-             [:re-str ::not-blank-str]]]]
+    [:path {:optional true} [:or
+                             [:vector :keyword]
+                             [:map
+                              [:re-str ::not-blank-str]]]]
     [:type {:optional true} (into [:enum] field-supported-types)]
     [:min {:optional true} [:int {:min 1}]]
     [:max {:optional true} [:int {:min 1}]]

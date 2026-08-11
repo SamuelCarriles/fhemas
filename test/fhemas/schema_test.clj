@@ -89,8 +89,8 @@
   (testing "valid when only max is present"
     (is (passes? schema/Field
                  {:path [:x]
-                 :max 1
-                 :compile/field 'fhemas.compile.r4/path})))
+                  :max 1
+                  :compile/field 'fhemas.compile.r4/path})))
   (testing "valid when neither min nor max is present"
     (is (passes? schema/Field
                  {:path [:x]
@@ -118,10 +118,21 @@
     (is (passes? schema/Field {:path [:snapshot :element]})))
   (testing "valid with regex-style path (re-str map)"
     (is (passes? schema/Field {:path {:re-str "^fixed-.*$"}})))
-  (testing "invalid with missing path"
-    (is (fails? schema/Field {:compile/field 'fhemas.compile.r4/path})))
   (testing "invalid with path as a plain string"
     (is (fails? schema/Field {:path "not-a-valid-path-shape"}))))
+
+(deftest field-without-path-test
+  (testing "valid with compile/field but no path (entire resource)"
+    (is (passes? schema/Field
+                 {:compile/field 'fhemas.compile.r4/process-structure-definition})))
+  (testing "valid with compile/group but no path"
+    (is (passes? schema/Field
+                 {:compile/group 'fhemas.compile.r4/some-group-processor})))
+  (testing "valid with type but no path"
+    (is (passes? schema/Field
+                 {:type :map})))
+  (testing "valid empty field (though unusual)"
+    (is (passes? schema/Field {}))))
 
 ;; ---------------------------------------------------------------------------
 ;; Elements schema
@@ -242,6 +253,7 @@
    :fhir-version "4.0.1"
    :indexes [{:name :idx/url->resource
               :key {:path [:url]}
+              :value {:compile/field 'fhemas.compile.r4/process-structure-definition}
               :relation :1->1}
              {:name :idx/structure-definition.name->url
               :when [{:resource-type "StructureDefinition"}]
@@ -382,7 +394,7 @@
 ;; ValidatorDefinition — schema required fields
 ;; ---------------------------------------------------------------------------
 
-(deftest validator-definition-schema-required-fields-test 
+(deftest validator-definition-schema-required-fields-test
   (testing "missing :schema :meta is invalid"
     (is (vd-fails? (update sample-vd :schema dissoc :meta))))
   (testing "missing :schema :invariants is invalid"
