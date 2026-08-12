@@ -65,7 +65,7 @@
   [idx page _]
   (let [[n kv] (first idx)
         [k v] (first kv)]
-    (update-in page [n k] (fnil conj []) v)))
+    (update-in page [n k] (fnil conj #{}) v)))
 
 (defn apply-indexes
   "Applies all indexes to a single resource, merging the results into init-page."

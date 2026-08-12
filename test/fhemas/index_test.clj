@@ -172,22 +172,22 @@
     (let [idx {:idx/kind->urls {"primitive-type" "http://example.com/string"}}
           page {}
           result (idx/insert idx page :1->*)]
-      (is (= {:idx/kind->urls {"primitive-type" ["http://example.com/string"]}} result))))
+      (is (= {:idx/kind->urls {"primitive-type" #{"http://example.com/string"}}} result))))
 
   (testing "appends to existing vector"
     (let [idx {:idx/kind->urls {"primitive-type" "http://example.com/integer"}}
-          page {:idx/kind->urls {"primitive-type" ["http://example.com/string"]}}
+          page {:idx/kind->urls {"primitive-type" #{"http://example.com/string"}}}
           result (idx/insert idx page :1->*)]
-      (is (= {:idx/kind->urls {"primitive-type" ["http://example.com/string"
-                                                 "http://example.com/integer"]}}
+      (is (= {:idx/kind->urls {"primitive-type" #{"http://example.com/string"
+                                                 "http://example.com/integer"}}}
              result))))
 
   (testing "inserts into different key within same index"
     (let [idx {:idx/kind->urls {"complex-type" "http://example.com/HumanName"}}
-          page {:idx/kind->urls {"primitive-type" ["http://example.com/string"]}}
+          page {:idx/kind->urls {"primitive-type" #{"http://example.com/string"}}}
           result (idx/insert idx page :1->*)]
-      (is (= {:idx/kind->urls {"primitive-type" ["http://example.com/string"]
-                               "complex-type" ["http://example.com/HumanName"]}}
+      (is (= {:idx/kind->urls {"primitive-type" #{"http://example.com/string"}
+                               "complex-type" #{"http://example.com/HumanName"}}}
              result)))))
 
 (deftest insert-default-test
@@ -261,9 +261,9 @@
       (is (= {:idx/url->resource {"http://example.com/string" (first resources)
                                   "http://example.com/integer" (second resources)
                                   "http://example.com/Patient" (nth resources 2)}
-              :idx/kind->urls {"primitive-type" ["http://example.com/string"
-                                                 "http://example.com/integer"]
-                               "resource" ["http://example.com/Patient"]}}
+              :idx/kind->urls {"primitive-type" #{"http://example.com/string"
+                                                 "http://example.com/integer"}
+                               "resource" #{"http://example.com/Patient"}}}
              result))))
 
   (testing "handles resources that don't match some indexes"
