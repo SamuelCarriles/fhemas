@@ -1,4 +1,5 @@
 (ns fhemas.index
+  (:refer-clojure :exclude [resolve])
   (:require
    [fhemas.validator-definition.field.core :refer [get-value]]
    [fhemas.error :as error]))
@@ -84,4 +85,25 @@
   (reduce #(apply-indexes indexes %1 %2) {} resources))
 
 
+(defn resolve
+  "Resolves a key in the given index."
+  [indexes idx-name k]
+  (cond
+    (not (contains? indexes idx-name))
+    (throw (error/info :invalid/index
+                       {:message (format "The required index '%s' doesn't exist" idx-name)
+                        :location 'fhemas.r4.index/resolve
+                        :operation :resolve-index
+                        :details {:index idx-name
+                                  :expected (keys indexes)}}))
 
+    (not (contains? (get indexes idx-name) k))
+    (throw (error/info :invalid/index
+                       {:message (format "Unavailable key '%s' in index %s" k idx-name)
+                        :location 'fhemas.r4.index/resolve
+                        :operation :resolve-index-key
+                        :details {:index-key k
+                                  :expected (keys (get indexes idx-name))}}))
+
+    :else
+    (get-in indexes [idx-name k])))

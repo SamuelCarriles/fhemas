@@ -10,6 +10,20 @@
     (catch clojure.lang.ExceptionInfo e
       (= code (:code (ex-data e))))))
 
+(def sample-indexes-page
+  {:structure-definition/url->validator {"http://example.org/Patient" identity
+                                         "http://example.org/Observation" identity}
+   :structure-definition/name->url {"Patient" "http://example.org/Patient"
+                                    "Observation" "http://example.org/Observation"}
+   :structure-definition/kind->urls {"resource" #{"http://example.org/Patient"
+                                                  "http://example.org/Observation"}
+                                     "complex-type" #{"http://example.org/Identifier"}}
+   :terminology/url->resource {"http://example.org/ValueSet/example" {:resource-type "ValueSet"
+                                                                      :url "http://example.org/ValueSet/example"}
+                               "http://example.org/CodeSystem/example" {:resource-type "CodeSystem"
+                                                                        :url "http://example.org/CodeSystem/example"}}})
+
+
 ;; ---------------------------------------------------------------------------
 ;; submap?
 ;; ---------------------------------------------------------------------------
@@ -291,4 +305,42 @@
                      {:url "http://example.com" :name "duplicate"}]]
       (is (throws-code? :invalid/index
                         #(idx/build indexes resources))))))
+
+;; --------------------------------------------------------------
+;; resolve 
+;; --------------------------------------------------------------
+
+(deftest resolve-successful-test
+  (testing "returns value when index and key exist"
+    (is (= identity
+           (idx/resolve sample-indexes-page :structure-definition/url->validator "http://example.org/Patient"))))
+  (testing "returns set for one-to-many index"
+    (is (= #{"http://example.org/Patient" "http://example.org/Observation"}
+           (idx/resolve sample-indexes-page :structure-definition/kind->urls "resource")))))
+
+(deftest resolve-missing-index-test
+  (testing "throws :r4.invalid/index when index does not exist"
+    (is (throws-code? :invalid/index
+                       #(idx/resolve sample-indexes-page :nonexistent "key"))))
+  (testing "error contains correct details"
+    (try
+      (idx/resolve sample-indexes-page :nonexistent "key")
+      (catch clojure.lang.ExceptionInfo e
+        (let [data (ex-data e)]
+          (is (= :invalid/index (:code data)))
+          (is (= :resolve-index (:operation data)))
+          (is (= :nonexistent (get-in data [:details :index]))))))))
+
+(deftest resolve-missing-key-test
+  (testing "throws :r4.invalid/index-key when key does not exist in index"
+    (is (throws-code? :invalid/index
+                       #(idx/resolve sample-indexes-page :structure-definition/url->validator "http://nonexistent.org"))))
+  (testing "error contains correct details"
+    (try
+      (idx/resolve sample-indexes-page :structure-definition/url->validator "http://nonexistent.org")
+      (catch clojure.lang.ExceptionInfo e
+        (let [data (ex-data e)]
+          (is (= :invalid/index (:code data)))
+          (is (= :resolve-index-key (:operation data)))
+          (is (= "http://nonexistent.org" (get-in data [:details :index-key]))))))))
 
