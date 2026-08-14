@@ -16,6 +16,5 @@ pom.xml.asc
 .clj-kondo/
 .lsp/
 *.structure_definitions
-docs
 /resources
 *.zip

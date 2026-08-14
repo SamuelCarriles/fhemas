@@ -1,4 +1,4 @@
-{:paths ["src" "resources"]
+{:paths ["src"]
  :deps {org.clojure/clojure {:mvn/version "1.12.5-alpha1"}
         camel-snake-kebab/camel-snake-kebab {:mvn/version "0.4.3"}
         metosin/jsonista {:mvn/version "1.0.0"}
