@@ -35,10 +35,12 @@
                               :type {:current (type value)
                                      :expected expected}}}))
 
-(defmethod info :invalid/index
+(defmethod info :default
   [code data]
   (ex-info (:message data)
            (-> data
                (dissoc :message)
                (assoc :code code))))
+
+
 
