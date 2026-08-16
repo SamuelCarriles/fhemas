@@ -23,7 +23,6 @@
                                "http://example.org/CodeSystem/example" {:resource-type "CodeSystem"
                                                                         :url "http://example.org/CodeSystem/example"}}})
 
-
 ;; ---------------------------------------------------------------------------
 ;; submap?
 ;; ---------------------------------------------------------------------------
@@ -70,21 +69,6 @@
 ;; ---------------------------------------------------------------------------
 ;; create
 ;; ---------------------------------------------------------------------------
-
-(def sample-indexes
-  [{:name :idx/url->resource
-    :key {:path [:url]}
-    :relation :1->1}
-   {:name :idx/name->url
-    :when [{:resource-type "StructureDefinition"}]
-    :key {:path [:name]}
-    :value {:path [:url]}
-    :relation :1->1}
-   {:name :idx/kind->urls
-    :when [{:resource-type "StructureDefinition"}]
-    :key {:path [:kind]}
-    :value {:path [:url]}
-    :relation :1->*}])
 
 (deftest create-basic-test
   (testing "creates index entry with full resource when no :value"
@@ -193,7 +177,7 @@
           page {:idx/kind->urls {"primitive-type" #{"http://example.com/string"}}}
           result (idx/insert idx page :1->*)]
       (is (= {:idx/kind->urls {"primitive-type" #{"http://example.com/string"
-                                                 "http://example.com/integer"}}}
+                                                  "http://example.com/integer"}}}
              result))))
 
   (testing "inserts into different key within same index"
@@ -276,7 +260,7 @@
                                   "http://example.com/integer" (second resources)
                                   "http://example.com/Patient" (nth resources 2)}
               :idx/kind->urls {"primitive-type" #{"http://example.com/string"
-                                                 "http://example.com/integer"}
+                                                  "http://example.com/integer"}
                                "resource" #{"http://example.com/Patient"}}}
              result))))
 
@@ -321,7 +305,7 @@
 (deftest resolve-missing-index-test
   (testing "throws :r4.invalid/index when index does not exist"
     (is (throws-code? :invalid/index
-                       #(idx/resolve sample-indexes-page :nonexistent "key"))))
+                      #(idx/resolve sample-indexes-page :nonexistent "key"))))
   (testing "error contains correct details"
     (try
       (idx/resolve sample-indexes-page :nonexistent "key")
@@ -334,7 +318,7 @@
 (deftest resolve-missing-key-test
   (testing "throws :r4.invalid/index-key when key does not exist in index"
     (is (throws-code? :invalid/index
-                       #(idx/resolve sample-indexes-page :structure-definition/url->validator "http://nonexistent.org"))))
+                      #(idx/resolve sample-indexes-page :structure-definition/url->validator "http://nonexistent.org"))))
   (testing "error contains correct details"
     (try
       (idx/resolve sample-indexes-page :structure-definition/url->validator "http://nonexistent.org")
