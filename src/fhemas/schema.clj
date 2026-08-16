@@ -64,13 +64,13 @@
     [:base-definition Field]
     [:snapshot {:optional true} Field]
     [:differential {:optional true} Field]
+    [:compile-order :qualified-symbol]
     [:fields [:vector Field]]]])
 
 (def Schema
   [:map
    [:source {:optional true} ::url]
    [:base ::url]
-   [:meta [:vector Field]]
    [:invariants [:vector Field]]
    [:elements Elements]])
 

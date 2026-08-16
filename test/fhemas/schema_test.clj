@@ -144,11 +144,13 @@
                  {:base-definition {:path [:base-definition]}
                   :snapshot {:path [:snapshot :element]
                              :compile/field 'fhemas.compile.r4/snapshot}
+                  :compile-order 'fhemas.r4.compile.element/compile-order
                   :fields []})))
   (testing "valid with only differential"
     (is (passes? schema/Elements
                  {:base-definition {:path [:base-definition]}
                   :differential {:path [:differential :element]}
+                  :compile-order 'fhemas.r4.compile.element/compile-order
                   :fields []})))
   (testing "valid with both snapshot and differential"
     (is (passes? schema/Elements
@@ -156,10 +158,12 @@
                   :snapshot {:path [:snapshot :element]
                              :compile/field 'fhemas.compile.r4/snapshot}
                   :differential {:path [:differential :element]}
+                  :compile-order 'fhemas.r4.compile.element/compile-order
                   :fields []})))
   (testing "invalid with neither snapshot nor differential"
     (is (fails? schema/Elements
                 {:base-definition {:path [:base-definition]}
+                 :compile-order 'fhemas.r4.compile.element/compile-order
                  :fields []}))))
 
 (deftest elements-base-definition-required-test
@@ -167,13 +171,36 @@
     (is (fails? schema/Elements
                 {:snapshot {:path [:snapshot :element]
                             :compile/field 'fhemas.compile.r4/snapshot}
+                 :compile-order 'fhemas.r4.compile.element/compile-order
                  :fields []})))
   (testing "valid with base-definition present"
     (is (passes? schema/Elements
                  {:base-definition {:path [:base-definition]}
                   :snapshot {:path [:snapshot :element]
                              :compile/field 'fhemas.compile.r4/snapshot}
+                  :compile-order 'fhemas.r4.compile.element/compile-order
                   :fields []}))))
+
+(deftest elements-compile-order-required-test
+  (testing "invalid without compile-order"
+    (is (fails? schema/Elements
+                {:base-definition {:path [:base-definition]}
+                 :snapshot {:path [:snapshot :element]
+                            :compile/field 'fhemas.compile.r4/snapshot}
+                 :fields []})))
+  (testing "valid with compile-order present"
+    (is (passes? schema/Elements
+                 {:base-definition {:path [:base-definition]}
+                  :snapshot {:path [:snapshot :element]
+                             :compile/field 'fhemas.compile.r4/snapshot}
+                  :compile-order 'fhemas.r4.compile.element/compile-order
+                  :fields []})))
+  (testing "compile-order must be a qualified symbol"
+    (is (fails? schema/Elements
+                {:base-definition {:path [:base-definition]}
+                 :snapshot {:path [:snapshot :element]}
+                 :compile-order "not-a-symbol"
+                 :fields []}))))
 
 ;; ---------------------------------------------------------------------------
 ;; Index schema
@@ -272,19 +299,6 @@
    :schema
    {:source "https://hl7.org/fhir/R4/structuredefinition.html"
     :base "http://hl7.org/fhir/StructureDefinition/StructureDefinition"
-    :meta [{:path [:fhir-version]
-            :type :string
-            :max 1
-            :compile/field 'fhemas.compile.r4/structure-definition-fhir-version}
-           {:path [:status]
-            :type :string
-            :min 1
-            :max 1
-            :compile/field 'fhemas.compile.r4/structure-definition-status}
-           {:path [:experimental]
-            :type :boolean
-            :max 1
-            :compile/field 'fhemas.compile.r4/structure-definition-experimental}]
     :invariants [{:path [:context-invariant]
                   :type :vector
                   :compile/field 'fhemas.compile.r4/fhirpath-constraints}]
@@ -293,6 +307,7 @@
      :snapshot {:path [:snapshot :element]
                 :compile/field 'fhemas.compile.r4/snapshot}
      :differential {:path [:differential :element]}
+     :compile-order 'fhemas.r4.compile.element/compile-order
      :fields
      [{:path [:path] :type :string :min 1 :max 1
        :compile/field 'fhemas.compile.r4/path}
@@ -395,8 +410,6 @@
 ;; ---------------------------------------------------------------------------
 
 (deftest validator-definition-schema-required-fields-test
-  (testing "missing :schema :meta is invalid"
-    (is (vd-fails? (update sample-vd :schema dissoc :meta))))
   (testing "missing :schema :invariants is invalid"
     (is (vd-fails? (update sample-vd :schema dissoc :invariants))))
   (testing "missing :schema :elements is invalid"
@@ -404,7 +417,9 @@
   (testing ":schema :source is optional"
     (is (vd-passes? (update sample-vd :schema dissoc :source))))
   (testing "invalid :schema :source url is invalid"
-    (is (vd-fails? (assoc-in sample-vd [:schema :source] "not-a-url")))))
+    (is (vd-fails? (assoc-in sample-vd [:schema :source] "not-a-url"))))
+  (testing "missing :schema :elements :compile-order is invalid"
+    (is (vd-fails? (update-in sample-vd [:schema :elements] dissoc :compile-order)))))
 
 ;; ---------------------------------------------------------------------------
 ;; validate-schema / validate-validator-definition error behavior
