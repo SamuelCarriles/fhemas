@@ -1,5 +1,6 @@
 (ns fhemas.validator-definition.field.core-test
   (:require
+   [clojure.string :as str]
    [clojure.test :refer [deftest testing is]]
    [fhemas.validator-definition.field.core :as field]))
 
@@ -98,3 +99,51 @@
     (is (thrown? Exception
                  (field/process {:path [:status] :type :vector :max 1}
                                 {:status ["a" "b"]})))))
+
+;; ---------------------------------------------------------------------------
+;; parse
+;; ---------------------------------------------------------------------------
+
+(deftest parse-test
+  (testing "returns field unchanged when no parser is defined"
+    (is (= {:path [:status] :value "active"}
+           (field/parse {:path [:status] :value "active"}))))
+
+  (testing "returns field with :parsed-value when parser is defined"
+    (is (= {:path [:status] :value "active" :parsed-value "ACTIVE"}
+           (field/parse {:path [:status] :value "active"
+                         :parser str/upper-case}))))
+
+  (testing "preserves other field keys when parsing"
+    (is (= {:path [:status] :type :string :value "active" :parsed-value "ACTIVE"}
+           (field/parse {:path [:status] :type :string :value "active"
+                         :parser str/upper-case}))))
+
+  (testing "returns field unchanged when parser is nil"
+    (is (= {:path [:status] :value "active" :parser nil}
+           (field/parse {:path [:status] :value "active" :parser nil})))))
+
+;; ---------------------------------------------------------------------------
+;; process (with parser)
+;; ---------------------------------------------------------------------------
+
+(deftest process-with-parser-test
+  (testing "full pipeline with parser returns field with :parsed-value"
+    (let [result (field/process {:path [:status] :type :string
+                                 :parser str/upper-case}
+                                {:status "active"})]
+      (is (= {:path [:status] :type :string :value "active"
+              :parsed-value "ACTIVE"}
+             result))))
+
+  (testing "parser is not applied when field is absent"
+    (is (nil? (field/process {:path [:status] :type :string
+                              :parser str/upper-case}
+                             {:name "test"}))))
+
+  (testing "type validation happens before parsing"
+    (let [result (field/process {:path [:count] :type :integer
+                                 :parser inc}
+                                {:count 5})]
+      (is (= {:path [:count] :type :integer :value 5 :parsed-value 6}
+             result)))))

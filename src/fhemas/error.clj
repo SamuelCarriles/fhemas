@@ -17,6 +17,14 @@
                     :details {:compiler value
                               :expected "A valid compiler-fn symbol"}}))
 
+(defmethod info :invalid/parser
+  [code {:keys [message location operation value]}]
+  (ex-info message {:code code
+                    :location location
+                    :operation operation
+                    :details {:parser value
+                              :expected "A valid parser-fn symbol"}}))
+
 (defmethod info :invalid/cardinality
   [code {:keys [message location operation req-cardinality value]}]
   (ex-info message {:code code

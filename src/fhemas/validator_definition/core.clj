@@ -2,37 +2,44 @@
   (:require [clojure.walk :refer [postwalk]]
             [fhemas.error :as error]))
 
-(defn resolve-compiler
-  "Resolves a qualified symbol to its compiler function.
-   Throws if the symbol cannot be resolved."
-  [sym]
-  (if-some [compiler (try
+(defn ->fn [sym {:keys [code message]}]
+  (if-some [function (try
                        (requiring-resolve sym)
                        (catch Exception _ nil))]
-    compiler
-    (throw (error/info :invalid/compiler
-                       {:message (format "The compiler function %s can not be resolved" sym)
-                        :location 'fhemas.validator-definition/resolve-compiler
+    function
+    (throw (error/info code
+                       {:message message
+                        :location 'fhemas.validator-definition.core/->fn
                         :operation :resolve-symbol
                         :value sym}))))
 
-(defn coerce-compilers
-  "Walks a map replacing :compile/* symbols with their resolved functions.
-   Returns a new map."
-  [m]
+(defn ->compiler
+  [sym]
+  (->fn sym {:code :invalid/compiler :message (format "The compiler function %s can not be resolved" sym)}))
+
+(defn ->parser [sym]
+  (->fn sym {:code :invalid/parser :message (format "The parser function %s can not be resolved" sym)}))
+
+(defn coerce-symb
+  [m sym-key resolver]
   (postwalk
    (fn [x]
      (if (and (map-entry? x)
-              (qualified-keyword? (key x))
-              (= "compile" (namespace (key x))))
-       [(key x) (resolve-compiler (val x))]
+              (= sym-key (key x)))
+       [(key x) (resolver (val x))]
        x))
    m))
 
-(defn process
-  "Recieve a ValidatorDefinition schema and resolves
-   all compiler symbols to their functions."
-  [validator-def-map]
-  (update validator-def-map :schema coerce-compilers))
+(defn coerce-compilers
+  "Walks a map replacing :compiler symbols with their resolved functions.
+   Returns a new map."
 
+  [m]
+  (coerce-symb m :compiler ->compiler))
+
+(defn coerce-parsers
+  "Walks a map replacing :parser symbols with their resolved functions.
+   Returns a new map."
+  [m]
+  (coerce-symb m :parser ->parser))
 

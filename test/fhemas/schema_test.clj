@@ -68,50 +68,50 @@
                  {:path [:min]
                   :min 1
                   :max 2
-                  :compile/field 'fhemas.compile.r4/min-cardinality})))
+                  :compiler 'fhemas.compile.r4/min-cardinality})))
   (testing "valid when min == max"
     (is (passes? schema/Field
                  {:path [:x]
                   :min 1
                   :max 1
-                  :compile/field 'fhemas.compile.r4/path})))
+                  :compiler 'fhemas.compile.r4/path})))
   (testing "invalid when min > max"
     (is (fails? schema/Field
                 {:path [:x]
                  :min 5
                  :max 1
-                 :compile/field 'fhemas.compile.r4/path})))
+                 :compiler 'fhemas.compile.r4/path})))
   (testing "valid when only min is present"
     (is (passes? schema/Field
                  {:path [:x]
                   :min 1
-                  :compile/field 'fhemas.compile.r4/path})))
+                  :compiler 'fhemas.compile.r4/path})))
   (testing "valid when only max is present"
     (is (passes? schema/Field
                  {:path [:x]
                   :max 1
-                  :compile/field 'fhemas.compile.r4/path})))
+                  :compiler 'fhemas.compile.r4/path})))
   (testing "valid when neither min nor max is present"
     (is (passes? schema/Field
                  {:path [:x]
-                  :compile/field 'fhemas.compile.r4/path}))))
+                  :compiler 'fhemas.compile.r4/path}))))
 
-(deftest field-compile-exclusivity-test
-  (testing "valid with neither compile/field nor compile/group (purely declarative field)"
+(deftest field-compiler-parser-exclusivity-test
+  (testing "valid with neither compiler nor parser (purely declarative field)"
     (is (passes? schema/Field {:path [:base-definition]})))
-  (testing "valid with only compile/field"
+  (testing "valid with only compiler"
     (is (passes? schema/Field
                  {:path [:path]
-                  :compile/field 'fhemas.compile.r4/path})))
-  (testing "valid with only compile/group"
+                  :compiler 'fhemas.compile.r4/path})))
+  (testing "valid with only parser"
     (is (passes? schema/Field
-                 {:path [:slicing]
-                  :compile/group 'fhemas.compile.r4/slicing})))
-  (testing "invalid with both compile/field and compile/group"
+                 {:path [:url]
+                  :parser 'fhemas.parse.r4/normalize-url})))
+  (testing "invalid with both compiler and parser"
     (is (fails? schema/Field
                 {:path [:x]
-                 :compile/field 'fhemas.compile.r4/path
-                 :compile/group 'fhemas.compile.r4/slicing}))))
+                 :compiler 'fhemas.compile.r4/path
+                 :parser 'fhemas.parse.r4/normalize-url}))))
 
 (deftest field-path-test
   (testing "valid with vector-of-keyword path"
@@ -122,12 +122,12 @@
     (is (fails? schema/Field {:path "not-a-valid-path-shape"}))))
 
 (deftest field-without-path-test
-  (testing "valid with compile/field but no path (entire resource)"
+  (testing "valid with compiler but no path (entire resource)"
     (is (passes? schema/Field
-                 {:compile/field 'fhemas.compile.r4/process-structure-definition})))
-  (testing "valid with compile/group but no path"
+                 {:compiler 'fhemas.compile.r4/process-structure-definition})))
+  (testing "valid with parser but no path"
     (is (passes? schema/Field
-                 {:compile/group 'fhemas.compile.r4/some-group-processor})))
+                 {:parser 'fhemas.parse.r4/some-parser})))
   (testing "valid with type but no path"
     (is (passes? schema/Field
                  {:type :map})))
@@ -143,7 +143,7 @@
     (is (passes? schema/Elements
                  {:base-definition {:path [:base-definition]}
                   :snapshot {:path [:snapshot :element]
-                             :compile/field 'fhemas.compile.r4/snapshot}
+                             :compiler 'fhemas.compile.r4/snapshot}
                   :compile-order 'fhemas.r4.compile.element/compile-order
                   :fields []})))
   (testing "valid with only differential"
@@ -156,7 +156,7 @@
     (is (passes? schema/Elements
                  {:base-definition {:path [:base-definition]}
                   :snapshot {:path [:snapshot :element]
-                             :compile/field 'fhemas.compile.r4/snapshot}
+                             :compiler 'fhemas.compile.r4/snapshot}
                   :differential {:path [:differential :element]}
                   :compile-order 'fhemas.r4.compile.element/compile-order
                   :fields []})))
@@ -170,14 +170,14 @@
   (testing "invalid without base-definition"
     (is (fails? schema/Elements
                 {:snapshot {:path [:snapshot :element]
-                            :compile/field 'fhemas.compile.r4/snapshot}
+                            :compiler 'fhemas.compile.r4/snapshot}
                  :compile-order 'fhemas.r4.compile.element/compile-order
                  :fields []})))
   (testing "valid with base-definition present"
     (is (passes? schema/Elements
                  {:base-definition {:path [:base-definition]}
                   :snapshot {:path [:snapshot :element]
-                             :compile/field 'fhemas.compile.r4/snapshot}
+                             :compiler 'fhemas.compile.r4/snapshot}
                   :compile-order 'fhemas.r4.compile.element/compile-order
                   :fields []}))))
 
@@ -186,13 +186,13 @@
     (is (fails? schema/Elements
                 {:base-definition {:path [:base-definition]}
                  :snapshot {:path [:snapshot :element]
-                            :compile/field 'fhemas.compile.r4/snapshot}
+                            :compiler 'fhemas.compile.r4/snapshot}
                  :fields []})))
   (testing "valid with compile-order present"
     (is (passes? schema/Elements
                  {:base-definition {:path [:base-definition]}
                   :snapshot {:path [:snapshot :element]
-                             :compile/field 'fhemas.compile.r4/snapshot}
+                             :compiler 'fhemas.compile.r4/snapshot}
                   :compile-order 'fhemas.r4.compile.element/compile-order
                   :fields []})))
   (testing "compile-order must be a qualified symbol"
@@ -278,9 +278,13 @@
    :status :active
    :description "A validator definition that specifies how to parse, validate, and process FHIR R4 resources according to the official HL7 FHIR R4 specification. It defines the structure, constraints, and compilation rules needed to build validators for FHIR resources."
    :fhir-version "4.0.1"
+   :dispatch-by {:path [:resource-type]
+                 :type :string
+                 :min 1
+                 :max 1}
    :indexes [{:name :idx/url->resource
               :key {:path [:url]}
-              :value {:compile/field 'fhemas.compile.r4/process-structure-definition}
+              :value {:compiler 'fhemas.compile.r4/process-structure-definition}
               :relation :1->1}
              {:name :idx/structure-definition.name->url
               :when [{:resource-type "StructureDefinition"}]
@@ -301,46 +305,46 @@
     :base "http://hl7.org/fhir/StructureDefinition/StructureDefinition"
     :invariants [{:path [:context-invariant]
                   :type :vector
-                  :compile/field 'fhemas.compile.r4/fhirpath-constraints}]
+                  :compiler 'fhemas.compile.r4/fhirpath-constraints}]
     :elements
     {:base-definition {:path [:base-definition]}
      :snapshot {:path [:snapshot :element]
-                :compile/field 'fhemas.compile.r4/snapshot}
+                :compiler 'fhemas.compile.r4/snapshot}
      :differential {:path [:differential :element]}
      :compile-order 'fhemas.r4.compile.element/compile-order
      :fields
      [{:path [:path] :type :string :min 1 :max 1
-       :compile/field 'fhemas.compile.r4/path}
+       :compiler 'fhemas.compile.r4/path}
       {:path [:id] :type :string :max 1
-       :compile/field 'fhemas.compile.r4/id}
+       :compiler 'fhemas.compile.r4/id}
       {:path [:slice-name] :type :string :max 1}
       {:path [:slice-is-constraining] :type :boolean :max 1}
       {:path [:min] :type :integer :max 1
-       :compile/field 'fhemas.compile.r4/min-cardinality}
+       :compiler 'fhemas.compile.r4/min-cardinality}
       {:path [:max] :type :string :max 1
-       :compile/field 'fhemas.compile.r4/max-cardinality}
+       :compiler 'fhemas.compile.r4/max-cardinality}
       {:path [:slicing] :type :map :max 1
-       :compile/group 'fhemas.compile.r4/slicing}
+       :compiler 'fhemas.compile.r4/slicing}
       {:path [:type] :type :vector
-       :compile/field 'fhemas.compile.r4/type}
+       :compiler 'fhemas.compile.r4/type}
       {:path [:content-reference] :type :uri :max 1
-       :compile/group 'fhemas.compile.r4/content-reference}
+       :compiler 'fhemas.compile.r4/content-reference}
       {:path {:re-str "^fixed-.*$"}
-       :max 1 :compile/field 'fhemas.compile.r4/fixed-value}
+       :max 1 :compiler 'fhemas.compile.r4/fixed-value}
       {:path {:re-str "^pattern-.*$"}
-       :max 1 :compile/field 'fhemas.compile.r4/pattern-value}
+       :max 1 :compiler 'fhemas.compile.r4/pattern-value}
       {:path {:re-str "^min-value-.*$"}
-       :max 1 :compile/field 'fhemas.compile.r4/min-value}
+       :max 1 :compiler 'fhemas.compile.r4/min-value}
       {:path {:re-str "^max-value-.*$"}
-       :max 1 :compile/field 'fhemas.compile.r4/max-value}
+       :max 1 :compiler 'fhemas.compile.r4/max-value}
       {:path [:max-length] :type :integer :max 1
-       :compile/field 'fhemas.compile.r4/max-length}
+       :compiler 'fhemas.compile.r4/max-length}
       {:path [:constraint] :type :vector
-       :compile/field 'fhemas.compile.r4/fhirpath-constraints}
+       :compiler 'fhemas.compile.r4/fhirpath-constraints}
       {:path [:condition] :type :vector
-       :compile/field 'fhemas.compile.r4/condition}
+       :compiler 'fhemas.compile.r4/condition}
       {:path [:binding] :type :map :max 1
-       :compile/field 'fhemas.compile.r4/binding}]}}})
+       :compiler 'fhemas.compile.r4/binding}]}}})
 
 (deftest validator-definition-happy-path-test
   (testing "the real R4 ValidatorDefinition document validates cleanly"
@@ -374,6 +378,15 @@
       (is (vd-passes? (assoc sample-vd :status status)))))
   (testing "missing :fhir-version is invalid"
     (is (vd-fails? (dissoc sample-vd :fhir-version))))
+  (testing "missing :dispatch-by is invalid"
+    (is (vd-fails? (dissoc sample-vd :dispatch-by))))
+  (testing "invalid :dispatch-by (not a Field) is invalid"
+    (is (vd-fails? (assoc sample-vd :dispatch-by "not-a-field"))))
+  (testing "valid :dispatch-by as Field passes"
+    (is (vd-passes? (assoc sample-vd :dispatch-by {:path [:resource-type]
+                                                   :type :string
+                                                   :min 1
+                                                   :max 1}))))
   (testing ":id is optional"
     (is (vd-passes? (dissoc sample-vd :id))))
   (testing ":title is optional"
@@ -445,3 +458,19 @@
 (deftest validate-schema-returns-input-on-valid-test
   (testing "returns x unchanged, not the explain result"
     (is (= sample-vd (schema/validate-schema schema/ValidatorDefinition sample-vd "should not throw")))))
+
+;; ---------------------------------------------------------------------------
+;; CompileOrderResult schema
+;; ---------------------------------------------------------------------------
+
+(deftest compile-order-result-test
+  (testing "valid compile order result"
+    (is (passes? schema/CompileOrderResult [0 1 2 3 4])))
+  (testing "valid compile order with nil at the end"
+    (is (passes? schema/CompileOrderResult [0 2 3 1])))
+  (testing "invalid: empty vector"
+    (is (fails? schema/CompileOrderResult [])))
+  (testing "invalid: non-integer element"
+    (is (fails? schema/CompileOrderResult [0 1 "two"])))
+  (testing "invalid: negative integer"
+    (is (fails? schema/CompileOrderResult [0 -1 2]))))

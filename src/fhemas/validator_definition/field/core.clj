@@ -39,14 +39,25 @@
   [field]
   (when (some? (:value field)) field))
 
+(defn parse
+  "Applies the parser to the field's :value if present, storing the result
+   in :parsed-value. Returns the field unchanged if no parser is defined."
+  [{:keys [parser value] :as field}]
+  (if (some? parser)
+    (-> field
+        (dissoc :parser)
+        (assoc :parsed-value (parser value)))
+    field))
+
 (defn process
   "Orchestrates the complete field processing pipeline:
    extract value, validate cardinality, require value presence,
-   validate type, and compile validator."
+   validate type, and apply parser if present."
   [field resource]
   (some-> field
           (get-value resource)
           validate/cardinality
           value?
-          validate/type))
+          validate/type
+          parse))
 

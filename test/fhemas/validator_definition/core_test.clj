@@ -5,126 +5,139 @@
    [fhemas.validator-definition.core :as validator-def]))
 
 ;; ---------------------------------------------------------------------------
-;; resolve-compiler
+;; ->compiler
 ;; ---------------------------------------------------------------------------
 
-(deftest resolve-compiler-happy-path-test
+(deftest ->compiler-happy-path-test
   (testing "resolves an existing stdlib function"
     (is (= #'clojure.core/identity
-           (validator-def/resolve-compiler 'clojure.core/identity))))
+           (validator-def/->compiler 'clojure.core/identity))))
   (testing "resolves a function from a non-core namespace"
     (is (= #'clojure.string/upper-case
-           (validator-def/resolve-compiler 'clojure.string/upper-case)))))
+           (validator-def/->compiler 'clojure.string/upper-case)))))
 
-(deftest resolve-compiler-nonexistent-test
+(deftest ->compiler-nonexistent-test
   (testing "throws when the namespace does not exist"
     (try
-      (validator-def/resolve-compiler 'fhemas.nonexistent/foo)
+      (validator-def/->compiler 'fhemas.nonexistent/foo)
       (is false "expected an exception")
       (catch Exception e
         (is (= :invalid/compiler (:code (ex-data e)))))))
   (testing "throws when the function does not exist in a valid namespace"
     (try
-      (validator-def/resolve-compiler 'clojure.core/nonexistent-fn-xyz)
+      (validator-def/->compiler 'clojure.core/nonexistent-fn-xyz)
       (is false "expected an exception")
       (catch Exception e
         (is (= :invalid/compiler (:code (ex-data e))))))))
+
+;; ---------------------------------------------------------------------------
+;; ->parser
+;; ---------------------------------------------------------------------------
+
+(deftest ->parser-happy-path-test
+  (testing "resolves an existing stdlib function"
+    (is (= #'clojure.core/identity
+           (validator-def/->parser 'clojure.core/identity))))
+  (testing "resolves a function from a non-core namespace"
+    (is (= #'clojure.string/upper-case
+           (validator-def/->parser 'clojure.string/upper-case)))))
+
+(deftest ->parser-nonexistent-test
+  (testing "throws when the namespace does not exist"
+    (try
+      (validator-def/->parser 'fhemas.nonexistent/foo)
+      (is false "expected an exception")
+      (catch Exception e
+        (is (= :invalid/parser (:code (ex-data e)))))))
+  (testing "throws when the function does not exist in a valid namespace"
+    (try
+      (validator-def/->parser 'clojure.core/nonexistent-fn-xyz)
+      (is false "expected an exception")
+      (catch Exception e
+        (is (= :invalid/parser (:code (ex-data e))))))))
 
 ;; ---------------------------------------------------------------------------
 ;; coerce-compilers
 ;; ---------------------------------------------------------------------------
 
 (deftest coerce-compilers-happy-path-test
-  (testing "replaces a :compile/field symbol with its resolved var"
-    (let [input  {:compile/field 'clojure.core/identity}
+  (testing "replaces a :compiler symbol with its resolved var"
+    (let [input  {:compiler 'clojure.core/identity}
           result (validator-def/coerce-compilers input)]
-      (is (= #'clojure.core/identity (:compile/field result)))))
+      (is (= #'clojure.core/identity (:compiler result)))))
 
-  (testing "replaces a :compile/group symbol with its resolved var"
-    (let [input  {:compile/group 'clojure.core/identity}
-          result (validator-def/coerce-compilers input)]
-      (is (= #'clojure.core/identity (:compile/group result)))))
-
-  (testing "does not modify a map without :compile/* keys"
+  (testing "does not modify a map without :compiler keys"
     (let [input  {:path [:some-path] :type :string}
           result (validator-def/coerce-compilers input)]
       (is (= input result))))
 
   (testing "does not modify keys with a different namespace"
-    (let [input  {:other/field 'clojure.core/identity}
+    (let [input  {:other/compiler 'clojure.core/identity}
           result (validator-def/coerce-compilers input)]
       (is (= input result))))
 
-  (testing "handles nested maps with :compile/* keys at multiple levels"
-    (let [input  {:schema {:meta     [{:compile/field 'clojure.core/identity}]
-                           :elements {:fields [{:compile/group 'clojure.core/inc}]}}}
+  (testing "handles nested maps with :compiler keys at multiple levels"
+    (let [input  {:schema {:invariants [{:compiler 'clojure.core/identity}]
+                           :elements   {:fields [{:compiler 'clojure.core/inc}]}}}
           result (validator-def/coerce-compilers input)]
       (is (= #'clojure.core/identity
-             (get-in result [:schema :meta 0 :compile/field])))
+             (get-in result [:schema :invariants 0 :compiler])))
       (is (= #'clojure.core/inc
-             (get-in result [:schema :elements :fields 0 :compile/group]))))))
+             (get-in result [:schema :elements :fields 0 :compiler]))))))
 
 (deftest coerce-compilers-nonexistent-test
-  (testing "throws when a :compile/field symbol cannot be resolved"
+  (testing "throws when a :compiler symbol cannot be resolved"
     (try
-      (validator-def/coerce-compilers {:compile/field 'fhemas.nonexistent/foo})
+      (validator-def/coerce-compilers {:compiler 'fhemas.nonexistent/foo})
       (is false "expected an exception")
       (catch Exception e
         (is (= :invalid/compiler (:code (ex-data e))))))))
 
 (deftest coerce-compilers-immutability-test
   (testing "does not modify the original map"
-    (let [input {:compile/field 'clojure.core/identity}]
+    (let [input {:compiler 'clojure.core/identity}]
       (validator-def/coerce-compilers input)
-      (is (= 'clojure.core/identity (:compile/field input))))))
+      (is (= 'clojure.core/identity (:compiler input))))))
 
 ;; ---------------------------------------------------------------------------
-;; process
+;; coerce-parsers
 ;; ---------------------------------------------------------------------------
 
-(def test-vd
-  {:resource-type "ValidatorDefinition"
-   :url "https://example.com/test-vd"
-   :version "1.0.0"
-   :status :active
-   :fhir-version "4.0.1"
-   :indexes [{:name :idx/example
-              :key {:path [:url]}
-              :relation :1->1}]
-   :schema
-   {:base "http://example.base.com"
-    :meta [{:path [:status]
-            :type :string
-            :min 1
-            :max 1
-            :compile/field 'clojure.core/identity}]
-    :invariants [{:path [:constraint]
-                  :type :vector
-                  :compile/field 'clojure.core/identity}]
-    :elements
-    {:base-definition {:path [:base-definition]}
-     :snapshot        {:path [:snapshot :element]
-                       :compile/field 'clojure.core/identity}
-     :fields          [{:path [:path]
-                        :type :string
-                        :min 1
-                        :max 1
-                        :compile/field 'clojure.core/identity}]}}})
+(deftest coerce-parsers-happy-path-test
+  (testing "replaces a :parser symbol with its resolved var"
+    (let [input  {:parser 'clojure.core/identity}
+          result (validator-def/coerce-parsers input)]
+      (is (= #'clojure.core/identity (:parser result)))))
 
-(deftest process-happy-path-test
-  (testing "validates and coerces a valid VD with stdlib compilers"
-    (let [result (validator-def/process test-vd)]
-      (is (= #'clojure.core/identity
-             (get-in result [:schema :meta 0 :compile/field])))
-      (is (= #'clojure.core/identity
-             (get-in result [:schema :elements :snapshot :compile/field]))))))
+  (testing "does not modify a map without :parser keys"
+    (let [input  {:path [:some-path] :type :string}
+          result (validator-def/coerce-parsers input)]
+      (is (= input result))))
 
-(deftest process-nonexistent-compiler-test
-  (testing "throws when a compiler symbol cannot be resolved"
-    (let [bad-vd (assoc-in test-vd [:schema :meta 0 :compile/field]
-                           'fhemas.nonexistent/foo)]
-      (try
-        (validator-def/process bad-vd)
-        (is false "expected an exception")
-        (catch Exception e
-          (is (= :invalid/compiler (:code (ex-data e)))))))))
+  (testing "does not modify keys with a different namespace"
+    (let [input  {:other/parser 'clojure.core/identity}
+          result (validator-def/coerce-parsers input)]
+      (is (= input result))))
+
+  (testing "handles nested maps with :parser keys at multiple levels"
+    (let [input  {:schema {:invariants [{:parser 'clojure.core/identity}]
+                           :elements   {:fields [{:parser 'clojure.core/inc}]}}}
+          result (validator-def/coerce-parsers input)]
+      (is (= #'clojure.core/identity
+             (get-in result [:schema :invariants 0 :parser])))
+      (is (= #'clojure.core/inc
+             (get-in result [:schema :elements :fields 0 :parser]))))))
+
+(deftest coerce-parsers-nonexistent-test
+  (testing "throws when a :parser symbol cannot be resolved"
+    (try
+      (validator-def/coerce-parsers {:parser 'fhemas.nonexistent/foo})
+      (is false "expected an exception")
+      (catch Exception e
+        (is (= :invalid/parser (:code (ex-data e))))))))
+
+(deftest coerce-parsers-immutability-test
+  (testing "does not modify the original map"
+    (let [input {:parser 'clojure.core/identity}]
+      (validator-def/coerce-parsers input)
+      (is (= 'clojure.core/identity (:parser input))))))

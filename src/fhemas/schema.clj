@@ -39,9 +39,9 @@
                (some? max))
         (>= max min)
         true))]
-   [:fn {:error/message "cannot provide both compile/field and compile/group"}
-    (fn [{:compile/keys [field group]}]
-      (not (and field group)))]
+   [:fn {:error/message "cannot provide both compiler and parser"}
+    (fn [{:keys [compiler parser]}]
+      (not (and compiler parser)))]
 
    [:map
     [:path {:optional true} [:or
@@ -51,8 +51,8 @@
     [:type {:optional true} (into [:enum] field-supported-types)]
     [:min {:optional true} [:int {:min 1}]]
     [:max {:optional true} [:int {:min 1}]]
-    [:compile/field {:optional true} :qualified-symbol]
-    [:compile/group {:optional true} :qualified-symbol]]])
+    [:parser {:optional true} :qualified-symbol]
+    [:compiler {:optional true} :qualified-symbol]]])
 
 (def Elements
   [:and
@@ -98,8 +98,12 @@
    [:status [:enum :active :draft :unknown :retired]]
    [:description {:optional true} ::not-blank-str]
    [:fhir-version ::not-blank-str]
+   [:dispatch-by Field]
    [:indexes [:vector {:min 1} Index]]
    [:schema Schema]])
+
+(def CompileOrderResult
+  [:vector {:min 1} [:int {:min 0}]])
 
 (defn validate-schema [schema x error-msg]
   (if-let [explain (m/explain schema x {:registry registry})]
@@ -113,3 +117,5 @@
 (defn validate-validator-definition [m]
   (validate-schema ValidatorDefinition m "Invalid ValidatorDefinition"))
 
+(defn validate-compile-order [v]
+  (validate-schema CompileOrderResult v "Invalid compile order"))
