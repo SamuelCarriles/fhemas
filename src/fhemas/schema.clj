@@ -5,6 +5,7 @@
    [malli.core :as m]
    [malli.registry :as mr]
    [malli.error :as me]
+   [malli.transform :as mt]
    [fhemas.error :as error]
    [fhemas.validator-definition.field.validate :as validate]
    [fhemas.index :as idx]))
@@ -18,11 +19,11 @@
     (boolean (jio/as-url s))
     (catch Exception _ false)))
 
-(def registry
-  (mr/composite-registry
-   (m/default-schemas)
-   {::not-blank-str [:fn {:error/message "must be a non blank string"} not-blank-str?]
-    ::url [:fn {:error/message "must be a valid URL"} url?]}))
+(def options
+  {:registry (mr/composite-registry
+              (m/default-schemas)
+              {::not-blank-str [:fn {:error/message "must be a non blank string"} not-blank-str?]
+               ::url [:fn {:error/message "must be a valid URL"} url?]})})
 
 (def field-supported-types
   (-> validate/type
@@ -77,16 +78,20 @@
 (def supported-idx-relations
   (-> idx/insert
       methods
+      (dissoc :default)
       keys
       vec))
 
-(def Index
+(def Lookup
   [:map
    [:name :keyword]
    [:when {:optional true} [:vector {:min 1} [:map-of :keyword :any]]]
    [:key Field]
    [:value {:optional true} Field]
-   [:relation (into [:enum] supported-idx-relations)]])
+   [:relation {:default :1->1} (into [:enum] supported-idx-relations)]])
+
+(def LookupVector
+  [:vector {:min 1} Lookup])
 
 (def ValidatorDefinition
   [:map
@@ -99,14 +104,19 @@
    [:description {:optional true} ::not-blank-str]
    [:fhir-version ::not-blank-str]
    [:dispatch-by Field]
-   [:indexes [:vector {:min 1} Index]]
+   [:registry LookupVector]
+   [:terminology LookupVector]
+   [:lookups LookupVector]
    [:schema Schema]])
 
 (def CompileOrderResult
   [:vector {:min 1} [:int {:min 0}]])
 
+(defn coerce [schema x]
+  (m/coerce schema x mt/default-value-transformer options))
+
 (defn validate-schema [schema x error-msg]
-  (if-let [explain (m/explain schema x {:registry registry})]
+  (if-let [explain (m/explain schema x options)]
     (throw (error/info :invalid/schema
                        {:message error-msg
                         :location 'fhemas.schema/validate-schema

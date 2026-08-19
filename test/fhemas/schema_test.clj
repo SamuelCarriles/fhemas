@@ -58,6 +58,9 @@
 (defn vd-fails? [m]
   (not (vd-passes? m)))
 
+(defn coerces-to [schema input expected]
+  (= expected (schema/coerce schema input)))
+
 ;; ---------------------------------------------------------------------------
 ;; Field schema
 ;; ---------------------------------------------------------------------------
@@ -203,67 +206,84 @@
                  :fields []}))))
 
 ;; ---------------------------------------------------------------------------
-;; Index schema
+;; Lookup schema
 ;; ---------------------------------------------------------------------------
 
-(deftest index-required-fields-test
-  (testing "valid minimal index (only required fields)"
-    (is (passes? schema/Index
-                 {:name :idx/url->resource
+(deftest lookup-required-fields-test
+  (testing "valid minimal lookup (with required :relation)"
+    (is (passes? schema/Lookup
+                 {:name :match/url->resource
                   :key {:path [:url]}
                   :relation :1->1})))
   (testing "missing :name is invalid"
-    (is (fails? schema/Index
+    (is (fails? schema/Lookup
                 {:key {:path [:url]}
                  :relation :1->1})))
   (testing "missing :key is invalid"
-    (is (fails? schema/Index
-                {:name :idx/test
+    (is (fails? schema/Lookup
+                {:name :match/test
                  :relation :1->1})))
-  (testing "missing :relation is invalid"
-    (is (fails? schema/Index
-                {:name :idx/test
+  (testing "missing :relation is invalid (validation without coercion)"
+    (is (fails? schema/Lookup
+                {:name :match/test
                  :key {:path [:url]}}))))
 
-(deftest index-optional-fields-test
+(deftest lookup-optional-fields-test
   (testing "valid with :value present"
-    (is (passes? schema/Index
-                 {:name :idx/name->url
+    (is (passes? schema/Lookup
+                 {:name :match/name->url
                   :key {:path [:name]}
                   :value {:path [:url]}
                   :relation :1->1})))
   (testing "valid with :when present"
-    (is (passes? schema/Index
-                 {:name :idx/sd-name->url
+    (is (passes? schema/Lookup
+                 {:name :match/sd-name->url
                   :when [{:resource-type "StructureDefinition"}]
                   :key {:path [:name]}
                   :value {:path [:url]}
                   :relation :1->1})))
   (testing "valid with all optional fields"
-    (is (passes? schema/Index
-                 {:name :idx/sd-kind->urls
+    (is (passes? schema/Lookup
+                 {:name :match/sd-kind->urls
                   :when [{:resource-type "StructureDefinition"}]
                   :key {:path [:kind]}
                   :value {:path [:url]}
                   :relation :1->*}))))
 
-(deftest index-key-and-value-are-fields-test
+(deftest lookup-key-and-value-are-fields-test
   (testing ":key accepts regex path (inherits Field schema)"
-    (is (passes? schema/Index
-                 {:name :idx/test
+    (is (passes? schema/Lookup
+                 {:name :match/test
                   :key {:path {:re-str "^fixed-.*$"}}
                   :relation :1->1})))
   (testing ":value accepts regex path (inherits Field schema)"
-    (is (passes? schema/Index
-                 {:name :idx/test
+    (is (passes? schema/Lookup
+                 {:name :match/test
                   :key {:path [:url]}
                   :value {:path {:re-str "^some-.*$"}}
                   :relation :1->1})))
   (testing ":key with invalid path shape is invalid"
-    (is (fails? schema/Index
-                {:name :idx/test
+    (is (fails? schema/Lookup
+                {:name :match/test
                  :key {:path "not-valid"}
                  :relation :1->1}))))
+
+(deftest lookup-coercion-test
+  (testing "missing :relation defaults to :1->1 during coercion"
+    (is (coerces-to schema/Lookup
+                    {:name :test
+                     :key {:path [:url]}}
+                    {:name :test
+                     :key {:path [:url]}
+                     :relation :1->1})))
+  (testing "explicit :relation is preserved during coercion"
+    (is (coerces-to schema/Lookup
+                    {:name :test
+                     :key {:path [:url]}
+                     :relation :1->*}
+                    {:name :test
+                     :key {:path [:url]}
+                     :relation :1->*}))))
 
 ;; ---------------------------------------------------------------------------
 ;; Full ValidatorDefinition
@@ -282,21 +302,45 @@
                  :type :string
                  :min 1
                  :max 1}
-   :indexes [{:name :idx/url->resource
+   :registry [{:name :elements
+               :key {:path [:resource-type]
+                     :type :string
+                     :min 1
+                     :max 1}
+               :value {:compiler 'fhemas.compile.r4/process-structure-definition}
+               :when [{:resource-type "StructureDefinition"}]
+               :relation :1->1}]
+   :terminology [{:name :value-sets
+                  :key {:path [:url]
+                        :type :string
+                        :min 1
+                        :max 1}
+                  :value {:compiler 'fhemas.r4.compile.terminology/value-set}
+                  :when [{:resource-type "ValueSet"}]
+                  :relation :1->1}
+                 {:name :code-systems
+                  :key {:path [:url]
+                        :type :string
+                        :min 1
+                        :max 1}
+                  :value {:compiler 'fhemas.r4.compile.terminology/code-system}
+                  :when [{:resource-type "CodeSystem"}]
+                  :relation :1->1}]
+   :lookups [{:name :match/url->resource
               :key {:path [:url]}
-              :value {:compiler 'fhemas.compile.r4/process-structure-definition}
+              :value {:path [:resource-type]}
               :relation :1->1}
-             {:name :idx/structure-definition.name->url
+             {:name :match/structure-definition.name->url
               :when [{:resource-type "StructureDefinition"}]
               :key {:path [:name]}
               :value {:path [:url]}
               :relation :1->1}
-             {:name :idx/structure-definition.kind->urls
+             {:name :match/structure-definition.kind->urls
               :when [{:resource-type "StructureDefinition"}]
               :key {:path [:kind]}
               :value {:path [:url]}
               :relation :1->*}
-             {:name :idx/resource-type->urls
+             {:name :match/resource-type->urls
               :key {:path [:resource-type]}
               :value {:path [:url]}
               :relation :1->*}]
@@ -395,28 +439,72 @@
     (is (vd-passes? (dissoc sample-vd :description)))))
 
 ;; ---------------------------------------------------------------------------
-;; ValidatorDefinition — indexes
+;; ValidatorDefinition — registry
 ;; ---------------------------------------------------------------------------
 
-(deftest validator-definition-indexes-test
-  (testing "missing :indexes is invalid"
-    (is (vd-fails? (dissoc sample-vd :indexes))))
-  (testing "empty :indexes vector is invalid"
-    (is (vd-fails? (assoc sample-vd :indexes []))))
-  (testing "single valid index passes"
-    (is (vd-passes? (assoc sample-vd :indexes
-                           [{:name :idx/url->resource
+(deftest validator-definition-registry-test
+  (testing "missing :registry is invalid"
+    (is (vd-fails? (dissoc sample-vd :registry))))
+  (testing "empty :registry vector is invalid"
+    (is (vd-fails? (assoc sample-vd :registry []))))
+  (testing "single valid registry entry passes"
+    (is (vd-passes? (assoc sample-vd :registry
+                           [{:name :elements
+                             :key {:path [:resource-type]}
+                             :relation :1->1}]))))
+  (testing "registry entry with invalid :key fails"
+    (is (vd-fails? (assoc sample-vd :registry
+                          [{:name :test
+                            :key {:path "bad"}
+                            :relation :1->1}])))))
+
+;; ---------------------------------------------------------------------------
+;; ValidatorDefinition — terminology
+;; ---------------------------------------------------------------------------
+
+(deftest validator-definition-terminology-test
+  (testing "missing :terminology is invalid"
+    (is (vd-fails? (dissoc sample-vd :terminology))))
+  (testing "empty :terminology vector is invalid"
+    (is (vd-fails? (assoc sample-vd :terminology []))))
+  (testing "single valid terminology entry passes"
+    (is (vd-passes? (assoc sample-vd :terminology
+                           [{:name :valuesets
                              :key {:path [:url]}
                              :relation :1->1}]))))
-  (testing "index with invalid :key fails"
-    (is (vd-fails? (assoc sample-vd :indexes
-                          [{:name :idx/test
+  (testing "multiple valid terminology entries pass"
+    (is (vd-passes? (assoc sample-vd :terminology
+                           [{:name :valuesets
+                             :key {:path [:url]}
+                             :relation :1->1}
+                            {:name :codesystems
+                             :key {:path [:url]}
+                             :relation :1->1}]))))
+  (testing "terminology entry with invalid :key fails"
+    (is (vd-fails? (assoc sample-vd :terminology
+                          [{:name :test
                             :key {:path "bad"}
-                            :relation :1->1}]))))
-  (testing "index missing :relation fails"
-    (is (vd-fails? (assoc sample-vd :indexes
-                          [{:name :idx/test
-                            :key {:path [:url]}}])))))
+                            :relation :1->1}])))))
+
+;; ---------------------------------------------------------------------------
+;; ValidatorDefinition — lookups
+;; ---------------------------------------------------------------------------
+
+(deftest validator-definition-lookups-test
+  (testing "missing :lookups is invalid"
+    (is (vd-fails? (dissoc sample-vd :lookups))))
+  (testing "empty :lookups vector is invalid"
+    (is (vd-fails? (assoc sample-vd :lookups []))))
+  (testing "single valid lookup passes"
+    (is (vd-passes? (assoc sample-vd :lookups
+                           [{:name :match/url->resource
+                             :key {:path [:url]}
+                             :relation :1->1}]))))
+  (testing "lookup with invalid :key fails"
+    (is (vd-fails? (assoc sample-vd :lookups
+                          [{:name :match/test
+                            :key {:path "bad"}
+                            :relation :1->1}])))))
 
 ;; ---------------------------------------------------------------------------
 ;; ValidatorDefinition — schema required fields
@@ -466,7 +554,7 @@
 (deftest compile-order-result-test
   (testing "valid compile order result"
     (is (passes? schema/CompileOrderResult [0 1 2 3 4])))
-  (testing "valid compile order with nil at the end"
+  (testing "valid compile order with different order"
     (is (passes? schema/CompileOrderResult [0 2 3 1])))
   (testing "invalid: empty vector"
     (is (fails? schema/CompileOrderResult [])))
