@@ -2,12 +2,13 @@
 
 (defmulti info (fn [code _data] code))
 
-(defmethod info :invalid/schema
-  [code {:keys [message location operation details]}]
+(defmethod info :schema/invalid-entry
+  [code {:keys [message location operation value expected]}]
   (ex-info message {:code code
                     :location location
                     :operation operation
-                    :details details}))
+                    :details {:value value
+                              :expected expected}}))
 
 (defmethod info :invalid/compiler
   [code {:keys [message location operation value]}]
