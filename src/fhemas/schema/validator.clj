@@ -29,6 +29,7 @@
     [:resource-type [:= "Validator"]]
     [:id {:optional true} ::core/non-blank-str]
     [:meta Meta]
+    [:entry-dispatcher :qualified-symbol]
     [:registry Registry]]
    {:registry core/registry}))
 

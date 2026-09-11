@@ -5,20 +5,25 @@
 (def valid-validator
   {:resource-type "Validator"
    :id "validator-fhir-r4"
+   :entry-dispatcher 'fhemas.r4/dispatch
    :meta {:version-id "1"
           :source "https://github.com/samuelcarriles/fhemas.artifacts"
           :profile "https://github.com/samuelcarriles/fhemas.artifacts/vd/r4"
           :tag [{:system "http://hl7.org/fhir/FHIR-version"
                  :code :r4}]}
-   :registry {:order 'fhemas.r4.sort/registry-order
-              :elements {:sd-primary {"Patient" [{:path [:id] :type :string}]}}}
-   :queries {}})
+   :registry {:order 'fhemas.r4.compile/order
+              :elements {:sd-primary {"Patient" [{:path [:id] :type :string}]}}
+              :queries {}}})
 
 (deftest validate-valid-validator
   (testing "A valid Validator passes validation and returns the same map"
     (is (= valid-validator (validator/validate valid-validator)))))
 
 (deftest validate-missing-required-fields
+  (testing "Missing :entry-dispatcher should throw error"
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (validator/validate (dissoc valid-validator :entry-dispatcher)))))
+
   (testing "Missing :meta should throw error"
     (is (thrown? clojure.lang.ExceptionInfo
                  (validator/validate (dissoc valid-validator :meta)))))
@@ -35,6 +40,11 @@
   (testing "Wrong :resource-type should throw error"
     (is (thrown? clojure.lang.ExceptionInfo
                  (validator/validate (assoc valid-validator :resource-type "Wrong"))))))
+
+(deftest validate-entry-dispatcher-errors
+  (testing ":entry-dispatcher is not a qualified-symbol"
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (validator/validate (assoc valid-validator :entry-dispatcher "not-a-symbol"))))))
 
 (deftest validate-meta-errors
   (testing "Meta without :version-id should throw error"
