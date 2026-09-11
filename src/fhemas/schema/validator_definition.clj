@@ -51,7 +51,7 @@
 
 (def Index
   [:map
-   [:name ::core/non-blank-str]
+   [:name :keyword]
    [:type {:default :query} [:enum :primary :query]]
    [:key Field]
    [:value Field]
@@ -72,7 +72,7 @@
    [:fn {:error/message "All index names must be unique"} unique-idx-names?]
    [:map
     [:design-source {:optional true} ::core/url]
-    [:dispatch-resource-by Field]
+    [:entry-dispatcher :qualified-symbol]
     [:order
      [:map
       [:elements :qualified-symbol]

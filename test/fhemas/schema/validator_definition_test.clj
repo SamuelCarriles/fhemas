@@ -9,7 +9,7 @@
    :max 1})
 
 (def valid-primary-index
-  {:name "sd-primary"
+  {:name :sd-primary
    :type :primary
    :key valid-field
    :value {:path [:element]
@@ -17,7 +17,7 @@
    :relation :1->1})
 
 (def valid-query-index
-  {:name "sd-by-url"
+  {:name :sd-by-url
    :type :query
    :key {:path [:url] :type :string}
    :value {:path [:name] :type :string}
@@ -29,7 +29,7 @@
    :version "1.0.0"
    :status :stable
    :fhir-version "4.0.1"
-   :processor {:dispatch-resource-by {:path [:resourceType] :type :string}
+   :processor {:entry-dispatcher 'fhemas.r4/resource-dispatcher 
                :order {:elements 'fhemas.parse.r4/elements-order
                        :compile 'fhemas.compile.r4/compile-order}
                :indexes [valid-primary-index valid-query-index]
@@ -51,7 +51,7 @@
       (is (thrown? clojure.lang.ExceptionInfo (vd/validate invalid)))))
 
   (testing "Two primary indexes should fail"
-    (let [second-primary (assoc valid-primary-index :name "sd-primary-2")
+    (let [second-primary (assoc valid-primary-index :name :sd-primary-2)
           invalid (update-in valid-vd [:processor :indexes] conj second-primary)]
       (is (thrown? clojure.lang.ExceptionInfo (vd/validate invalid)))))
 
@@ -75,7 +75,7 @@
 
 (deftest validate-unique-index-names
   (testing "Indexes with duplicate names should fail"
-    (let [duplicate (assoc valid-query-index :name "sd-primary")
+    (let [duplicate (assoc valid-query-index :name :sd-primary)
           invalid (assoc-in valid-vd [:processor :indexes 1] duplicate)]
       (is (thrown? clojure.lang.ExceptionInfo (vd/validate invalid))))))
 
