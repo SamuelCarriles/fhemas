@@ -2,9 +2,12 @@
  :deps {org.clojure/clojure {:mvn/version "1.12.5-alpha1"}
         camel-snake-kebab/camel-snake-kebab {:mvn/version "0.4.3"}
         metosin/jsonista {:mvn/version "1.0.0"}
-        metosin/malli {:mvn/version "0.20.1"}}
+        metosin/malli {:mvn/version "0.20.1"}
+        weavejester/dependency {:mvn/version "1.0.1"}}
 
- :aliases {:test
+ :aliases {:dev {:extra-deps {criterium/criterium {:mvn/version "0.5.243-ALPHA"}}}
+
+           :test
            {:extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}}
             :main-opts ["-m" "kaocha.runner"]}
 

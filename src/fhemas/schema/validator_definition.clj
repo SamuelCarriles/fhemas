@@ -4,6 +4,39 @@
    [fhemas.schema.core :as core]
    [fhemas.validator-definition.field.validate :as validate]))
 
+(def ConditionPath
+  [:or
+   [:vector :keyword]
+   :keyword])
+
+(def PredicateClausule
+  [:map-of ConditionPath :any])
+
+;; TODO: Añadir validaciones:
+;; 1. ningún path debe ser subconjunto de otro
+(def Predicate
+  [:or
+   PredicateClausule
+   [:vector PredicateClausule]])
+
+(def SourceReader
+  [:and
+   [:map
+    [:from [:enum :dir :file]]
+    [:path ::core/non-blank-str]
+    [:file-format {:optional true} :keyword]
+    [:in {:optional true} [:vector :keyword]]
+    [:select [:vector :keyword]]
+    [:when {:optional true} Predicate]]
+   [:fn {:error/message "You must specify the file format"}
+    (fn [{:keys [from file-format]}]
+      (= (= :file from) (some? file-format)))]
+   [:fn {:error/message "The key :in is valid only when :from is :file"}
+    (fn [{:keys [in from]}]
+      (if (not= :file from)
+        (nil? in)
+        true))]])
+
 (defn valid-primary-idx?
   [{:keys [indexes]}]
   (= 1 (count (filter #(and (= :primary (:type %))
@@ -56,8 +89,7 @@
    [:key Field]
    [:value Field]
    [:relation [:enum :1->1 :1->*]]
-   [:when {:optional true}
-    [:vector [:map-of :keyword :any]]]])
+   [:when {:optional true} Predicate]])
 
 (def ElementsLocations
   [:map
@@ -98,6 +130,7 @@
     [:fhir-version ::core/non-blank-str]
     [:title {:optional true} ::core/non-blank-str]
     [:description {:optional true} ::core/non-blank-str]
+    [:source-reader SourceReader]
     [:processor Processor]]
    {:registry core/registry}))
 

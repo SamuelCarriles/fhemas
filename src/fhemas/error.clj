@@ -51,5 +51,10 @@
                (dissoc :message)
                (assoc :code code))))
 
+(defmethod info :path/invalid-array-access
+  [code {:keys [message path] :as data}]
+  (ex-info message (-> data
+                       (dissoc :message :path)
+                       (assoc :code code :details {:path path}))))
 
 
