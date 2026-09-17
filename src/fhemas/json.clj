@@ -18,8 +18,7 @@
   "Transforms a sequence of path keys into a nested map structure representing 
    an extraction route.
    
-   Takes a `path` (either a single keyword or a vector of keywords) and an 
-   `encode-key-fn` (e.g., to convert keywords to camelCase strings). It reverses 
+   Takes a `path` and an `encode-key-fn` (e.g., to convert keywords to camelCase strings). It reverses 
    the path and reduces it into a nested map, marking the leaf node with the 
    keyword `:$` to indicate a capture point.
    
@@ -27,15 +26,11 @@
    (enrich-path [:meta :last-updated] key-encoder)
    ;; => {\"meta\" {\"lastUpdated\" :$}}"
   [path encode-key-fn]
-  (let [path (if (vector? path)
-               path
-               (vector path))]
-
-    (->> path
-         reverse
-         (reduce
-          (fn [acc k] {(encode-key-fn k) acc})
-          :$))))
+  (->> path
+       reverse
+       (reduce
+        (fn [acc k] {(encode-key-fn k) acc})
+        :$)))
 
 (defn deep-merge
   "Recursively merges multiple maps."

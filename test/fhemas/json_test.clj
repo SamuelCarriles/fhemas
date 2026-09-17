@@ -16,7 +16,7 @@
 
 (deftest enrich-path-test
   (testing "enriches single keyword path with :$ marker"
-    (let [result (json/enrich-path :resource-type json/key-encoder)]
+    (let [result (json/enrich-path [:resource-type] json/key-encoder)]
       (is (= {"resourceType" :$} result))))
 
   (testing "enriches vector path with nested structure"
@@ -48,7 +48,7 @@
 
 (deftest ->extraction-route-test
   (testing "builds extraction route from multiple paths"
-    (let [paths [:resource-type :url [:meta :last-updated]]
+    (let [paths [[:resource-type] [:url] [:meta :last-updated]]
           result (json/->extraction-route paths)]
       (is (= {"resourceType" :$
               "url" :$
@@ -77,7 +77,7 @@
 
 (deftest extract-primitive-fields-test
   (testing "extract simple primitive fields from root level"
-    (let [paths [:resource-type :url :status :name :version]
+    (let [paths [[:resource-type] [:url] [:status] [:name] [:version]]
           result (json/extract age-sd-file paths)]
       (is (= {:resource-type "StructureDefinition"
               :url "http://hl7.org/fhir/StructureDefinition/Age"
